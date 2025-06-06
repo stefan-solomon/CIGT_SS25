@@ -254,7 +254,7 @@ class World:
             external_changes = self.compute_external_changes(country)
             country.update(
                 month_index=self.month,
-                **self.compute_external_changes(country)
+                **external_changes
             )
 
         self.month += 1  # advance global month counter

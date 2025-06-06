@@ -6,9 +6,11 @@ from simple_simulation import Country, World
 from plotting import plot_q_table
 
 class QLearningEnv():
-    def __init__(self,Country1, Country2):
-        self.Country1 = Country1
-        self.Country2 = Country2
+    def __init__(self,Country1_params, Country2_params):
+        self.Country1 = Country(**Country1_params)
+        self.Country2 = Country(**Country2_params)
+        self.Country1_params = Country1_params
+        self.Country2_params = Country2_params
         self.world = World([self.Country1, self.Country2])
 
         self.max_plants = 10
@@ -26,7 +28,7 @@ class QLearningEnv():
         self.n_actions = len(self.action_map)
 
     def reset(self):
-        self.__init__(self.Country1, self.Country2)
+        self.__init__(self.Country1_params, self.Country2_params)
         return self._get_state(self.Country1), self._get_state(self.Country2)
 
     def _get_state(self, country):
@@ -43,7 +45,7 @@ class QLearningEnv():
         energy_deficit = True if month_data['total_energy'] < month_data['energy_demand'] else False
         budget_deficit = True if month_data['budget'] < 0 else False
         dead = budget_deficit or energy_deficit
-        reward = -carbon - 100000*dead
+        reward = -carbon - 100*dead
 
         
         return reward, dead
@@ -90,24 +92,24 @@ class QLearningEnv():
 
 
 
-Norway = Country(
-            name='Norway',
-            population=1_000_000,
-            area=100_000,
-            budget=10_000_000_000,
-            total_energy=10000,
-            energy_needed_per_person=0.4,
-            carbon_footprint=0
-        )
-Indonesia = Country(
-            name='Indonesia',
-            population=800_000,
-            area=80_000,
-            budget=8_000_000_000,
-            total_energy=8000,
-            energy_needed_per_person=0.5,
-            carbon_footprint=0
-        )
+Norway_params = {
+            'name': 'Norway',
+            'population': 1_000_000,
+            'area': 100_000,
+            'budget': 10_000_000_000,
+            'total_energy': 0,
+            'energy_needed_per_person': 0.8,
+            'carbon_footprint': 0
+        }
+Indonesia_params = {
+            'name':'Indonesia',
+            'population': 800_000,
+            'area': 80_000,
+            'budget': 8_000_000_000,
+            'total_energy': 0,
+            'energy_needed_per_person':0.2,
+            'carbon_footprint':0
+}
 
 
 
@@ -120,7 +122,7 @@ n_episodes = 5000
 horizon = 12      # 12 months per episode
 n_countries = 2
 
-env = QLearningEnv(Norway, Indonesia)
+env = QLearningEnv(Norway_params, Indonesia_params)
 
 # Q-table: keys = state tuples, values = array of length n_actions
 Q_tables = [dict() for _ in range(n_countries)]
@@ -154,7 +156,7 @@ for _ in range(n_episodes):
         state = next_state
 
 # ===== Display the learned Q-values =====
-print("Learned Q-values (state → [Q(nothing), Q(solar), Q(nuclear), Q(decommission solar), Q(decommission nuclear), Q(decommission coal)]):")
+print("Learned Q-values (state → [Q(nothing), Q(solar), Q(nuclear), Q(decommission solar), Q(decommission nuclear), Q(decommission coal), Q(buy energy),Q(sell energy) ]):")
 for Q in Q_tables:
     for s, qvals in Q.items():
         print(f"  {s}: {qvals}")
@@ -174,7 +176,7 @@ for month in range(1, horizon + 1):
         print(f"    Budget: {country.budget}, Total Energy: {country.total_energy}, Carbon Footprint: {country.carbon_footprint}")
     
     # print last month data
-    state, _, dead = env.step(action1, action2)
+    states, _, dead = env.step(action1, action2)
     # if done:
     #     print("Simulation ended due to budget or energy demand issues.")
     #     break

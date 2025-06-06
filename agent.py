@@ -3,6 +3,7 @@ import numpy as np
 
 
 from simple_simulation import Country, World
+from plotting import plot_q_table
 
 class QLearningEnv:
     def __init__(self):
@@ -62,8 +63,8 @@ class QLearningEnv:
         # After `step`, the country’s history[-1]['carbon_footprint'] holds the updated carbon footprint.
         month_data = self.country.history[-1]
         carbon = month_data['carbon_footprint']
-        energy_penalty = -10000 if month_data['total_energy'] < month_data['energy_demand'] else 0
-        budget_penalty = -10000 if month_data['budget'] < 0 else 0
+        energy_penalty = -100000 if month_data['total_energy'] < month_data['energy_demand'] else 0
+        budget_penalty = -100000 if month_data['budget'] < 0 else 0
         reward = -carbon + energy_penalty + budget_penalty   # we want to minimize carbon
         
 
@@ -125,8 +126,14 @@ for month in range(1, horizon + 1):
     print(f"Month {month}, State {state} → Action = {env.action_map[action]}")
     # print budget, energy, carbon footprint
     print(f"  Budget: {env.country.budget}, Total Energy: {env.country.total_energy}, Carbon Footprint: {env.country.carbon_footprint}")
+    
     # print last month data
-    state, _, _ = env.step(action)
+    state, _, done = env.step(action)
+    if done:
+        print("Simulation ended due to budget or energy demand issues.")
+        break
+
+plot_q_table(Q, env)
 
 
 

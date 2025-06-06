@@ -82,6 +82,7 @@ class Country:
     
     def decommission_plant(self, plant_type):
         """Remove a power plant of the specified type from the country."""
+        success = True
         if plant_type == 'nuclear' and self.n_nuclear_plants > 0:
             self.n_nuclear_plants -= 1
         elif plant_type == 'solar' and self.n_solar_plants > 0:
@@ -89,8 +90,8 @@ class Country:
         elif plant_type == 'coal' and self.n_coal_plants > 0:
             self.n_coal_plants -= 1
         else:
-            print(f"No {plant_type} plants to decommission in {self.name}.")
-
+            success = False
+        return success
     def __repr__(self):
         return f"Country({self.name}, Population: {self.population}, Budget: {self.budget}, Total Energy: {self.total_energy}, Carbon Footprint: {self.carbon_footprint})"
     
@@ -157,8 +158,12 @@ class Country:
                     print(f"Just commissioned {act['number']} {act['type']} plants in {self.name}.")
             elif act['action'] == 'decommission':
                 for _ in range(act['number']):
-                    self.decommission_plant(act['type'])
-                print(f"Just decommissioned {act['number']} {act['type']} plants in {self.name}.")
+                    success = self.decommission_plant(act['type'])
+                    if success:
+                        print(f"Just decommissioned 1 {act['type']} plants in {self.name}.")
+                    else:
+                        print(f"Failed to decommission {act['type']} plants in {self.name}. No such plants available.")
+                    
                 
 
 class World:

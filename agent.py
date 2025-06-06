@@ -48,11 +48,11 @@ class QLearningEnv:
         elif action == 2:
             env_action = [{'action': 'commission', 'type': 'nuclear', 'number': 1}]
         elif action == 3:
-            env_action = [{'action': 'decommission', 'type': 'coal', 'number': 1}]
+            env_action = [{'action': 'decommission', 'type': 'solar', 'number': 1}]
         elif action == 4:
             env_action = [{'action': 'decommission', 'type': 'nuclear', 'number': 1}]
         elif action == 5:
-            env_action = [{'action': 'decommission', 'type': 'solar', 'number': 1}]
+            env_action = [{'action': 'decommission', 'type': 'coal', 'number': 1}]
         else:
             env_action = []
 
@@ -62,14 +62,14 @@ class QLearningEnv:
         # After `step`, the country’s history[-1]['carbon_footprint'] holds the updated carbon footprint.
         month_data = self.country.history[-1]
         carbon = month_data['carbon_footprint']
-        energy_penalty = -1000 if month_data['total_energy'] < month_data['energy_demand'] else 0
-        budget_penalty = -1000 if month_data['budget'] < 0 else 0
+        energy_penalty = -10000 if month_data['total_energy'] < month_data['energy_demand'] else 0
+        budget_penalty = -10000 if month_data['budget'] < 0 else 0
         reward = -carbon + energy_penalty + budget_penalty   # we want to minimize carbon
         
 
 
         next_state = self._get_state()
-        done = energy_penalty != 0 or budget_penalty != 0
+        done = (energy_penalty != 0) or (budget_penalty != 0)
 
         return next_state, reward, done
 

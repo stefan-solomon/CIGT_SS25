@@ -88,6 +88,8 @@ class Country:
             self.n_solar_plants -= 1
         elif plant_type == 'coal' and self.n_coal_plants > 0:
             self.n_coal_plants -= 1
+        else:
+            print(f"No {plant_type} plants to decommission in {self.name}.")
 
     def __repr__(self):
         return f"Country({self.name}, Population: {self.population}, Budget: {self.budget}, Total Energy: {self.total_energy}, Carbon Footprint: {self.carbon_footprint})"

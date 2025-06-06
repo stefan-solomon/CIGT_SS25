@@ -70,6 +70,11 @@ class Country:
         n_plants_init = int(np.ceil(needed_energy / output_coal))
         self.n_coal_plants = n_plants_init
     
+    def calculate_price_per_MWh(self):
+        #calculate price per MWh based on sources of energy production 
+        return 1000
+        
+    
     def commission_plant(self, plant_type):
         """Add a power plant of the specified type to the country."""
         if plant_type == 'nuclear':
@@ -163,6 +168,10 @@ class Country:
                         print(f"Just decommissioned 1 {act['type']} plants in {self.name}.")
                     else:
                         print(f"Failed to decommission {act['type']} plants in {self.name}. No such plants available.")
+
+    
+         
+        
                     
                 
 
@@ -182,19 +191,70 @@ class World:
             'budget_change': 0,  # optionally add tax revenue, aid, etc.
             'total_energy_change': 0  # e.g., import/export, grid loss
         }
+    
+    def trade_energy(self, buyer_country, buyer_amount, seller_country, seller_amount):
+        profit_margin = 0.5
+        buyer_price_per_MWh = min(buyer_country.calculate_price_per_MWh()/2, buyer_country.budget / buyer_amount)  
+        seller_price_per_MWh = seller_country.calculate_price_per_MWh()*(1+profit_margin)  # seller's price is higher to account for profit margin
+        amount = min(buyer_amount, seller_amount)
+        if buyer_price_per_MWh >= seller_price_per_MWh:
+            price = (buyer_price_per_MWh+ seller_price_per_MWh)*amount / 2
+            if price >= seller_price_per_MWh * amount / (1+profit_margin):
+                # Perform the trade
+                buyer_country.budget -= price
+                seller_country.budget += price
+                buyer_country.total_energy += amount
+                seller_country.total_energy -= amount
+                
+                # Update history
+                buyer_country.history[-1]['total_energy'] += amount
+                seller_country.history[-1]['total_energy'] -= amount
+                
+                print(f"Trade successful: {buyer_country.name} bought {amount} MWh from {seller_country.name} at {price} EUR.")
+            else:
+                print(f"Trade failed: {seller_country.name} make a profit from the trade")
+                return
+            
+        else:
+            print(f"Trade failed: {buyer_country.name} cannot afford {amount} MWh at {buyer_price_per_MWh} per MWh.")
+            return
+
+            
+            
+
+
+        
+        
 
     def step(self, actions_per_country):
         """
         Steps the simulation by one month.
         :param actions_per_country: list of lists of actions (per country)
         """
+        #Execute actions (apart from trading)
         for country, actions in zip(self.countries, actions_per_country):
+            
             country.step_action(actions)  # e.g., build or decommission plants
+            
+            # external_changes = self.compute_external_changes(country)
+            # country.update(
+            #     month_index=self.month,
+            #     **external_changes
+            # )
 
+        #execute trading actions
+        if (len(actions_per_country[0]) != 0) and (len(actions_per_country[1]) != 0):
+            if actions_per_country[0][0]['action']== 'buy_energy' and actions_per_country[1][0]['action'] == 'sell_energy':
+                self.trade_energy(self.countries[0],actions_per_country[0][0]['amount'], self.countries[1],actions_per_country[1][0]['amount'])
+            elif actions_per_country[0][0]['action']== 'sell_energy' and actions_per_country[1][0]['action'] == 'buy_energy':
+                self.trade_energy(self.countries[1],actions_per_country[1][0]['amount'], self.countries[0],actions_per_country[0][0]['amount'])
+
+        # Update each country's state
+        for country in self.countries:
             external_changes = self.compute_external_changes(country)
             country.update(
                 month_index=self.month,
-                **external_changes
+                **self.compute_external_changes(country)
             )
 
         self.month += 1  # advance global month counter
@@ -220,3 +280,4 @@ class World:
         """
         for country in self.countries:
             print(country)
+    

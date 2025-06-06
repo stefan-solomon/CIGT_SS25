@@ -46,24 +46,6 @@ energy_requirement_per_person = 0.4 # in MWh / month
 # Folder for saving figures
 figure_folder = "./figures"
 
-# class PowerPlant:
-#     def __init__(self, plant_type, commission_cost, operation_cost, output, active = True):
-#         self.type = plant_type
-#         self.output = output  # in MWh/Month
-#         self.commission_cost = commission_cost # in EUR
-#         self.operation_cost = operation_cost # in EUR/Month
-#         self.active = active
-
-#     def operate(self):
-#         """Calculate the energy produced by the plant."""
-#         if self.active:
-#             return self.output
-#         else :
-#             return 0
-
-#     def __repr__(self):
-#         return f"PowerPlant({self.type}, {self.output}, {self.commission_cost}, {self.operation_cost}, {self.active})"
-
 
 class Country:
     def __init__(self, name, population, area, budget, total_energy, energy_needed_per_person, carbon_footprint):
@@ -177,7 +159,7 @@ class Country:
                 print(f"Just decommissioned {act['number']} {act['type']} plants in {self.name}.")
                 
 
-class Continent:
+class World:
     def __init__(self, countries):
         self.countries = countries  # list of Country instances
         self.month = 0

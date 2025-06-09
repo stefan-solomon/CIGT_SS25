@@ -139,24 +139,46 @@ class Country:
     def commission_plant(self, plant_type):
         """Add a power plant of the specified type to the country."""
         if plant_type == 'nuclear':
-            self.n_nuclear_plants += 1
-            self.budget -= commission_cost_nuclear
+            if self.budget >= commission_cost_nuclear:
+                self.n_nuclear_plants += 1
+                self.budget -= commission_cost_nuclear
+                print(f"Commissioned a nuclear plant. Total nuclear plants: {self.n_nuclear_plants}")
+            else:
+                print("Insufficient budget to commission a nuclear plant.")
         elif plant_type == 'solar':
-            self.n_solar_plants += 1
-            self.budget -= commission_cost_solar
+            if self.budget >= commission_cost_solar:
+                self.n_solar_plants += 1
+                self.budget -= commission_cost_solar
+                print(f"Commissioned a solar plant. Total solar plants: {self.n_solar_plants}")
+            else:
+                print("Insufficient budget to commission a solar plant.")
+        
+        elif plant_type == 'coal':
+            pass  # Coal plants are not commissioned in this simulation
+        
 
     def decommission_plant(self, plant_type):
         """Remove a power plant of the specified type from the country."""
-        success = True
         if plant_type == 'nuclear' and self.n_nuclear_plants > 0:
-            self.n_nuclear_plants -= 1
-        elif plant_type == 'solar' and self.n_solar_plants > 0:
-            self.n_solar_plants -= 1
-        elif plant_type == 'coal' and self.n_coal_plants > 0:
-            self.n_coal_plants -= 1
-        else:
-            success = False
-        return success
+            if self.n_nuclear_plants > 0:
+                self.n_nuclear_plants -= 1
+                print(f"Decommissioned a nuclear plant. Total nuclear plants: {self.n_nuclear_plants}")
+            else:
+                print("No nuclear plants to decommission.")
+        elif plant_type == 'solar':
+            if self.n_solar_plants > 0:
+                self.n_solar_plants -= 1
+                print(f"Decommissioned a solar plant. Total solar plants: {self.n_solar_plants}")
+            else:
+                print("No solar plants to decommission.")
+        elif plant_type == 'coal':
+            if self.n_coal_plants > 0:
+                self.n_coal_plants -= 1
+                print(f"Decommissioned a coal plant. Total coal plants: {self.n_coal_plants}")
+            else:
+                print("No coal plants to decommission.")
+            
+        
     
     def __repr__(self):
         return f"Buyer(name={self.name}, population={self.population}, area={self.area}, budget={self.budget}, total_energy={self.total_energy}, energy_needed_per_person={self.energy_needed_per_person})"
@@ -210,10 +232,9 @@ class Country:
         """
         if action == 'commission':
             self.commission_plant(type_of_plant)
+        
         elif action == 'decommission':
-            success = self.decommission_plant(type_of_plant)
-            if not success:
-                print(f"Decommissioning {type_of_plant} plant failed: No plants of this type available.")
+            self.decommission_plant(type_of_plant) 
         elif action == 'nothing':
             print(f"{self.name} does nothing this month.")
         else:
@@ -221,7 +242,7 @@ class Country:
 
 # === Define the Buyer class ===
 class Buyer(Country):
-    def calculate_offer_price_per_MWh(self):
+    def calculate_offer_price_per_MWh(self, fraction_of_production_cost=0.9):
         """
         Calculate the offer price per MWh based on the budget and total energy.
         """
@@ -241,7 +262,7 @@ class Buyer(Country):
 
 # === Define the Seller class ===
 class Seller(Country):
-    def calculate_demand_price_per_MWh(self):
+    def calculate_demand_price_per_MWh(self, profit_margin=0.1):
         """
         Calculate the offer price per MWh based on the budget and total energy.
         """

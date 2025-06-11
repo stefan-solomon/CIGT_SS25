@@ -300,18 +300,21 @@ class World:
             'total_energy_change': 0  # e.g., import/export, grid loss
         }
     
-    def trade_energy(self, buyer_country, buyer_amount, seller_country, seller_amount):
+    def trade_energy(self, buyer_country, amount, seller_country):
         # Check if countries correspond to the right roles
         if isinstance(buyer_country, Buyer) and isinstance(seller_country, Seller):
             # Calculate prices based on the countries' budgets and energy needs
-            profit_margin = 0.5
-            buyer_price_per_MWh = min(buyer_country.calculate_offer_price_per_MWh()/2, buyer_country.budget / buyer_amount)  
+            profit_margin = 0.1
+            buyer_price_per_MWh = min(buyer_country.calculate_offer_price_per_MWh()/2, buyer_country.budget / amount)  
             seller_price_per_MWh = seller_country.calculate_demand_price_per_MWh()*(1+profit_margin)  # seller's price is higher to account for profit margin
-            amount = min(buyer_amount, seller_amount)
+            
             if buyer_price_per_MWh >= seller_price_per_MWh:
                 price = (buyer_price_per_MWh+ seller_price_per_MWh)*amount / 2
                 if price >= seller_price_per_MWh * amount / (1+profit_margin):
                     # Perform the trade
+                    if price > buyer_country.budget:
+                        print(f"Trade failed: {buyer_country.name} cannot afford the trade price of {price} EUR.")
+                        return
                     buyer_country.action_buy_energy(amount)
                     seller_country.action_sell_energy(amount)
                     
@@ -321,7 +324,7 @@ class World:
                     return
                 
             else:
-                print(f"Trade failed: {buyer_country.name} cannot afford {amount} MWh at {buyer_price_per_MWh} per MWh.")
+                print(f"Trade failed: {buyer_country.name} wants to pay {buyer_price_per_MWh} per MWh while {seller_country.name} wants to sell for {seller_price_per_MWh} per MWh.")
                 return
             
         else:
@@ -332,31 +335,29 @@ class World:
             
     def step(self, actions_per_country):
         # Step 1: Apply infrastructure changes
+        buyer_action = []
+        seller_action = []
         for country, actions in zip(self.countries, actions_per_country):
             infra_actions = [a for a in actions if a['action'] in ['commission', 'decommission']]
             for a in infra_actions:
                 country.action_infrastructure(a['action'], a['type'])
+            buyer_action_list = [a for a in actions if a['action'] == 'buy_energy']
+            if len(buyer_action_list) >0:
+                buyer_action.append(buyer_action_list[0]) 
+            seller_action_list = [a for a in actions if a['action'] == 'sell_energy' or a['action'] == 'dont_sell_energy']
+            if len(seller_action_list) > 0:
+                seller_action.append(seller_action_list[0])
+        amount = buyer_action[0]['amount'] if len(buyer_action) > 0 else 0
+        if len(buyer_action) >0 and len(seller_action)>0:
+            buyer_action = buyer_action[0]
+            seller_action = seller_action[0]
+            if buyer_action['action'] == 'buy_energy' and seller_action['action'] == 'sell_energy':
+                self.trade_energy(
+                    self.countries[0], amount,
+                    self.countries[1]
+                )
         
-        # Step 2: Handle trading actions
-        trade_actions = [(i, [a for a in acts if a['action'] in ['buy_energy', 'sell_energy']])
-                        for i, acts in enumerate(actions_per_country)]
 
-        # Extract buyer and seller (at most one of each)
-        buyer_idx = seller_idx = None
-        buyer_action = seller_action = None
-
-        for i, actions in trade_actions:
-            for a in actions:
-                if a['action'] == 'buy_energy':
-                    buyer_idx, buyer_action = i, a
-                elif a['action'] == 'sell_energy':
-                    seller_idx, seller_action = i, a
-
-        if buyer_action and seller_action:
-            self.trade_energy(
-                self.countries[buyer_idx], buyer_action['amount'],
-                self.countries[seller_idx], seller_action['amount']
-            )
 
         # Step 3: Apply external changes and update each country's state
         for country in self.countries:
@@ -411,13 +412,21 @@ class QLearningEnv():
             4: 'decommission_nuclear',
             5: 'decommission_coal'
         }
-        self.trade_action_map = {
+        self.trade_action_map_1 = {
             0: 'nothing',
-            1: 'buy_energy',
-            2: 'sell_energy'
+            1: 'buy 1_000 MWh energy',
+            2: 'buy 10_000 MWh energy',
+            3: 'buy 100_000 MWh energy',
+            4: 'buy 1_000_000 MWh energy',
+        }
+        self.trade_action_map_2 = {
+            0: 'no',
+            1: 'yes'
         }
         self.n_infra_actions = len(self.infra_action_map)
-        self.n_trade_actions = len(self.trade_action_map)
+        self.n_trade_actions_1 = len(self.trade_action_map_1)
+        self.n_trade_actions_2 = len(self.trade_action_map_2)
+
 
     def reset(self):
         self.__init__(self.Country1_params, self.Country2_params)
@@ -427,47 +436,89 @@ class QLearningEnv():
         ns = country.n_solar_plants
         nn = country.n_nuclear_plants
         nc = country.n_coal_plants
-
-        return (ns, nn, nc)
+        budget = country.budget
+        energy = country.total_energy
+        enough_budget_for_solar = budget >= commission_cost_solar
+        enough_budget_for_nuclear = budget >= commission_cost_nuclear
+        enough_energy_for_one_month = energy >= country.energy_demand
+        enough_energy_for_two_months = energy >= 2 * country.energy_demand
+        enough_energy_for_three_months = energy >= 3 * country.energy_demand
+        return (ns,nn,nc,
+                enough_budget_for_solar, enough_budget_for_nuclear,enough_energy_for_one_month,
+                enough_energy_for_two_months, enough_energy_for_three_months)
     
     def _compute_reward(self, country):
+        
         month_data = country.history[-1]
         carbon = month_data['carbon_footprint']
-        energy_deficit = True if month_data['total_energy'] < month_data['energy_demand'] else False
-        budget_deficit = True if month_data['budget'] < 0 else False
-        dead = budget_deficit or energy_deficit
-        reward = -carbon - 100*dead
+        if len(country.history) < 2:
+            carbon_increase = carbon
+        else:
+            carbon_increase = carbon - country.history[-2]['carbon_footprint']
+        energy_deficit = month_data['total_energy'] - month_data['energy_demand']
+        budget_deficit = month_data['budget']
+        dead = budget_deficit or (energy_deficit<0)
+        reward = -carbon_increase - 100*energy_deficit- budget_deficit + month_data['total_energy']
 
         
         return reward, dead
 
     def step(self, infra1, infra2, trade1, trade2):
         env_actions = []
-
-        for infra, trade in [(infra1, trade1), (infra2, trade2)]:
-            action_list = []
-
+        infra_action_list = []
+        trade_action_list = []
+        for infra in [infra1, infra2]:
             # Infra actions
             if infra == 1:
-                action_list.append({'action': 'commission', 'type': 'solar', 'number': 1})
+                infra_action_list.append({'action': 'commission', 'type': 'solar', 'number': 1})
             elif infra == 2:
-                action_list.append({'action': 'commission', 'type': 'nuclear', 'number': 1})
+                infra_action_list.append({'action': 'commission', 'type': 'nuclear', 'number': 1})
             elif infra == 3:
-                action_list.append({'action': 'decommission', 'type': 'solar', 'number': 1})
+                infra_action_list.append({'action': 'decommission', 'type': 'solar', 'number': 1})
             elif infra == 4:
-                action_list.append({'action': 'decommission', 'type': 'nuclear', 'number': 1})
+                infra_action_list.append({'action': 'decommission', 'type': 'nuclear', 'number': 1})
             elif infra == 5:
-                action_list.append({'action': 'decommission', 'type': 'coal', 'number': 1})
+                infra_action_list.append({'action': 'decommission', 'type': 'coal', 'number': 1})
+            else:
+                infra_action_list.append({'action': 'nothing'})
             # 0 → do nothing
 
-            # Trade actions
-            if trade == 1:
-                action_list.append({'action': 'buy_energy', 'amount': 10})
-            elif trade == 2:
-                action_list.append({'action': 'sell_energy', 'amount': 10})
-            # 0 → do nothing
-
+        # Trade actions
+        if trade1 == 1:
+            trade_action_list.append({'action': 'buy_energy', 'amount': 1000})
+            if trade2 == 1:
+                trade_action_list.append({'action': 'sell_energy'})
+            else:
+                trade_action_list.append({'action': 'dont_sell_energy'})
+        elif trade1 == 2:
+            trade_action_list.append({'action': 'buy_energy', 'amount': 10000})
+            if trade2 == 1:
+                trade_action_list.append({'action': 'sell_energy'})
+            else:
+                trade_action_list.append({'action': 'dont_sell_energy'})
+        elif trade1 == 3:
+            trade_action_list.append({'action': 'buy_energy', 'amount': 100000})
+            if trade2 == 1:
+                trade_action_list.append({'action': 'sell_energy'})
+            else:
+                trade_action_list.append({'action': 'dont_sell_energy'})
+        elif trade1 == 4:
+            trade_action_list.append({'action': 'buy_energy', 'amount': 1000000})
+            if trade2 == 1:
+                trade_action_list.append({'action': 'sell_energy'})
+            else:
+                trade_action_list.append({'action': 'dont_sell_energy'})
+        else:
+            trade_action_list.append({'action': 'nothing'})
+            trade_action_list.append({'action': 'no'})
+        # 0 → do nothing
+        for i in range(len(self.world.countries)):
+            action_list = []
+            action_list.append(infra_action_list[i])  # Add infrastructure action
+            action_list.append(trade_action_list[i])
             env_actions.append(action_list)
+
+        
 
         self.world.step(env_actions)
 

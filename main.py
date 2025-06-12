@@ -8,26 +8,28 @@ if __name__ == "__main__":
 
     Norway_params = {
                 'name': 'Norway',
-                'population': 1_000_000,
+                'population': 6_000_000,
                 'area': 100_000,
                 'budget': 50_000_000_000,
                 'total_energy': 0,
-                'energy_needed_per_person': 0.8,
+                'energy_needed_per_person': 0.58,
                 'carbon_footprint': 0,
-                'weather_data': IRRADIATION_DATA_NORWAY
+                'weather_data': IRRADIATION_DATA_NORWAY,
+                'monthly_funds': 3_000_000_000
             }
     Indonesia_params = {
                 'name':'Indonesia',
-                'population': 800_000,
+                'population': 281_000_000,
                 'area': 80_000,
                 'budget': 10_000_000_000,
                 'total_energy': 0,
-                'energy_needed_per_person':0.2,
+                'energy_needed_per_person':0.12,
                 'carbon_footprint':0,
-                'weather_data': IRRADIATION_DATA_INDONESIA
+                'weather_data': IRRADIATION_DATA_INDONESIA,
+                'monthly_funds': 4_500_000_000
     }
 
-
+    number_successful_trades = 0
 
 
     # Q-learning hyperparameters
@@ -35,7 +37,7 @@ if __name__ == "__main__":
     gamma = 0.9       # discount factor
     epsilon = 0.2     # epsilon for ε-greedy
     n_episodes = 5000
-    horizon = 12      # 12 months per episode
+    horizon = 12 * 4      # 12 months per episode
     n_countries = 2
 
     env = QLearningEnv(Norway_params, Indonesia_params)
@@ -150,5 +152,10 @@ if __name__ == "__main__":
         # Take a step in the environment
         states, _, dead = env.step(infra1, infra2, trade1, trade2)
 
+    n_successful_trades = env.world.number_successful_trades
+    print(f"Number of successful trades: {n_successful_trades}")
   
-    
+    plot_budget_history(env.world.countries)
+    plot_energy_history(env.world.countries)
+    plot_carbon_footprint_history(env.world.countries)
+    plot_number_of_plants(country1=env.world.countries[0], country2=env.world.countries[1], color_solar1='gold', color_solar2 = 'yellow', color_nuclear1='limegreen', color_nuclear2="lime", color_coal1='dimgray', color_coal2='silver')

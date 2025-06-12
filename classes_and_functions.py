@@ -90,7 +90,7 @@ lcoe_solar = 50 # in EUR / MWh
 
 # Monthly energy outputs for different energy sources
 output_nuclear = 650_000 # in MWh / month
-output_coal = 500_000 # in MWh / month
+output_coal = 400_000 # in MWh / month
 
 ####### MAYBE ADD CAPACITY  ########
 
@@ -112,7 +112,7 @@ This will allow us to gather data which we will analyze in the report.
 
 # === Define the Country class ===
 class Country:
-    def __init__(self, name, population, area, budget, total_energy, energy_needed_per_person, carbon_footprint, weather_data):
+    def __init__(self, name, population, area, budget, total_energy, energy_needed_per_person, carbon_footprint, weather_data, monthly_funds):
         self.name = name
         self.population = population
         self.area = area
@@ -120,14 +120,15 @@ class Country:
         self.budget = budget
         self.total_energy = total_energy
         self.carbon_footprint = carbon_footprint
+        self.monthly_funds = monthly_funds  # Monthly funds available for energy production
 
         self.weather_data = weather_data  # Dictionary with monthly irradiation data
         
         self.energy_needed_per_person = energy_needed_per_person # in MWh / month
         self.energy_demand = self.population * self.energy_needed_per_person
-        self.n_coal_plants = 0
         self.n_solar_plants = 0
         self.n_nuclear_plants = 0
+        self.n_decommissioned_coal_plants = 0
 
         self.history = []
 
@@ -174,6 +175,7 @@ class Country:
         elif plant_type == 'coal':
             if self.n_coal_plants > 0:
                 self.n_coal_plants -= 1
+                self.n_decommissioned_coal_plants += 1
                 print(f"Decommissioned a coal plant. Total coal plants: {self.n_coal_plants}")
             else:
                 print("No coal plants to decommission.")
@@ -206,7 +208,7 @@ class Country:
         # Update the total energy produced and budget
         self.energy_demand = self.population * self.energy_needed_per_person
 
-        budget_change = budget_change - total_cost
+        budget_change = budget_change - total_cost + self.monthly_funds  # Monthly funds added to the budget
         total_energy_change = total_energy_change + total_production - self.energy_demand
 
         self.population += population_change
@@ -288,6 +290,7 @@ class World:
         self.countries = countries  # list of Country instances
         self.month = 0
         self.history = []  # optional global history
+        self.number_successful_trades = 0  # Counter for successful trades
 
     def compute_external_changes(self, country):
         """
@@ -319,6 +322,7 @@ class World:
                     seller_country.action_sell_energy(amount)
                     
                     print(f"Trade successful: {buyer_country.name} bought {amount} MWh from {seller_country.name} at {price} EUR.")
+                    self.number_successful_trades += 1
                 else:
                     print(f"Trade failed: {seller_country.name} make a profit from the trade")
                     return
@@ -391,6 +395,12 @@ class World:
         for country in self.countries:
             print(country)
 
+    def return_successful_trades(self):
+        """
+        Return the number of successful trades.
+        """
+        return self.number_successful_trades
+
 # =================================================================
 
 # === Define the QLearningEnv class ===
@@ -458,7 +468,25 @@ class QLearningEnv():
         energy_deficit = month_data['total_energy'] - month_data['energy_demand']
         budget_deficit = month_data['budget']
         dead = budget_deficit or (energy_deficit<0)
-        reward = -carbon_increase - 100*energy_deficit- budget_deficit + month_data['total_energy']
+
+        # Scale the reward terms:
+        carbon_increase_rew = carbon_increase * 1e-12  # Scale down carbon increase
+        total_carbon_rew = carbon * 1e-12  # Scale down total carbon footprint
+        energy_deficit_rew = energy_deficit * 1e-8  # Scale down energy deficit
+        budget_deficit_rew = budget_deficit * 1e-11  # Scale down budget deficit
+        total_energy_rew = month_data['total_energy'] * 1e-8  # Scale down total energy
+        budget_rew = month_data['budget'] * 1e-11  # Scale down budget
+        decommissioned_coal_rew = country.n_decommissioned_coal_plants
+
+        reward = - 70 * carbon_increase_rew + \
+                    - 2 * total_carbon_rew + \
+                    - 0 * energy_deficit_rew + \
+                    - 0 * budget_deficit_rew + \
+                    5 * total_energy_rew + \
+                    3 * budget_rew +\
+                    10 * decommissioned_coal_rew + \
+                    - 1000 * dead  # Large penalty for being dead
+        
 
         
         return reward, dead
@@ -532,3 +560,76 @@ class QLearningEnv():
             next_states.append(self._get_state(country))
 
         return next_states, rewards, dones
+    
+
+def plot_energy_history(countries, title="Country History"):
+    """
+    Plot the history of each country.
+    """
+    plt.figure(figsize=(12, 8))
+    for country in countries:
+        df = pd.DataFrame(country.history)
+        plt.plot(df['month'], df['total_energy'], label=f"{country.name} Total Energy")
+    
+    plt.xlabel("Month")
+    plt.ylabel("Value")
+    plt.title(title)
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+def plot_carbon_footprint_history(countries, title="Carbon Footprint History"):
+    """
+    Plot the carbon footprint history of each country.
+    """
+    plt.figure(figsize=(12, 8))
+    for country in countries:
+        df = pd.DataFrame(country.history)
+        plt.plot(df['month'], df['carbon_footprint'], label=f"{country.name} Carbon Footprint")
+    
+    plt.xlabel("Month")
+    plt.ylabel("Carbon Footprint (kg CO2)")
+    plt.title(title)
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+def plot_budget_history(countries, title="Budget History"):
+    """
+    Plot the budget history of each country.
+    """
+    plt.figure(figsize=(12, 8))
+    for country in countries:
+        df = pd.DataFrame(country.history)
+        plt.plot(df['month'], df['budget'], label=f"{country.name} Budget")
+    
+    plt.xlabel("Month")
+    plt.ylabel("Budget (EUR)")
+    plt.title(title)
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+def plot_number_of_plants(country1 ,country2 , color_solar1, color_solar2, color_nuclear1, color_nuclear2, color_coal1, color_coal2, title="Number of Plants History"):
+    """
+    Plot the number of plants history of each country.
+    """
+    plt.figure(figsize=(12, 8))
+    
+    df1 = pd.DataFrame(country1.history)
+    df2 = pd.DataFrame(country2.history)
+
+    plt.plot(df1['month'], df1['n_solar_plants'], color = color_solar1, label=f"{country1.name} Solar Plants")
+    plt.plot(df1['month'], df1['n_nuclear_plants'], color = color_nuclear1, label=f"{country1.name} Nuclear Plants")
+    plt.plot(df1['month'], df1['n_coal_plants'], color = color_coal1, label=f"{country1.name} Coal Plants")
+    plt.plot(df2['month'], df2['n_solar_plants'], color = color_solar2, label=f"{country2.name} Solar Plants")
+    plt.plot(df2['month'], df2['n_nuclear_plants'], color = color_nuclear2, label=f"{country2.name} Nuclear Plants")
+    plt.plot(df2['month'], df2['n_coal_plants'], color = color_coal2, label=f"{country2.name} Coal Plants")
+    
+    plt.xlabel("Month")
+    plt.ylabel("Number of Plants")
+    plt.title(title)
+    plt.legend()
+    plt.grid()
+    plt.show()
+        

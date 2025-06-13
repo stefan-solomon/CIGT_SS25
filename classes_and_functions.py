@@ -379,8 +379,8 @@ class QLearningEnv():
         
         
         energy_deficit = month_data['total_energy'] - month_data['energy_demand']
-        budget_deficit = month_data['budget']
-        dead = (budget_deficit<0) or (energy_deficit<0)
+        budget = month_data['budget']
+        dead = (budget<0) or (energy_deficit<0)
         
         total_carbon_norm, total_carbon_increase_norm = self.compute_carbon_footprint(country)
 
@@ -388,17 +388,17 @@ class QLearningEnv():
         carbon_increase_rew = total_carbon_increase_norm * 1e-12  # Scale down carbon increase
         total_carbon_rew = total_carbon_norm * 1e-12  # Scale down total carbon footprint
         energy_deficit_rew = energy_deficit * 1e-8  # Scale down energy deficit
-        budget_deficit_rew = budget_deficit * 1e-11  # Scale down budget deficit
+        budget_rew = budget * 1e-11  # Scale down budget deficit
         total_energy_rew = month_data['total_energy'] * 1e-8  # Scale down total energy
         budget_rew = month_data['budget'] * 1e-11  # Scale down budget
         decommissioned_coal_rew = country.n_decommissioned_coal_plants
+        
+        
+        #3 * budget_rew +\
 
         reward = - 70 * carbon_increase_rew + \
                     - 2 * total_carbon_rew + \
-                    - 0 * energy_deficit_rew + \
-                    - 0 * budget_deficit_rew + \
                     5 * total_energy_rew + \
-                    3 * budget_rew +\
                     10 * decommissioned_coal_rew + \
                     - 10000 * dead  # Large penalty for being dead
         

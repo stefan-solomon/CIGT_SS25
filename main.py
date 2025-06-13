@@ -37,7 +37,7 @@ if __name__ == "__main__":
     gamma = 0.9       # discount factor
     epsilon = 0.2     # epsilon for ε-greedy
     n_episodes = 5000
-    horizon = 12 * 4      # 12 months per episode
+    horizon = 12 * 10      # 12 months per episode
     n_countries = 2
 
     env = QLearningEnv(Norway_params, Indonesia_params)
@@ -68,17 +68,11 @@ if __name__ == "__main__":
                 actions.append(action)
 
            
-            # Step environment
-            # Unpack the tuple two separate arguments
-            act1, act2 = actions
-
             # Call the step function with two separate arguments
-            next_states, rewards, dones = env.step(act1, act2)
+            next_states, rewards, dones = env.step(actions[0], actions[1])
 
             # Q-learning update
             for i in range(n_countries):
-                buyer = (i == 0)  # Country 1 is the buyer, Country 2 is the seller
-                # Infrastructure update
                 action = actions[i]
                 q_current = get_Q(states[i], Q_tables[i])[action]
                 q_next = np.max(get_Q(next_states[i], Q_tables[i]))
@@ -97,6 +91,7 @@ if __name__ == "__main__":
     # ===== Simulate one 12-month run using the greedy policy =====
     states = env.reset()
     print("\nSimulation using the learned greedy policy:")
+    rewards_per_country = [[], []]
     for month in range(1, horizon + 1):
         # Get Q-values for both countries
         qvals1 = get_Q(states[0], Q_tables[0])
@@ -119,10 +114,15 @@ if __name__ == "__main__":
             print(f"    Budget: {country.budget}, Total Energy: {country.total_energy}, Carbon Footprint: {country.carbon_footprint}")
 
         # Take a step in the environment
-        states, _, dead = env.step(action1, action2)
+        states, rewards, dead = env.step(action1, action2)
+        rewards_per_country[0].append(rewards[0])
+        rewards_per_country[1].append(rewards[1])
+
 
   
     plot_budget_history(env.world.countries)
     plot_energy_history(env.world.countries)
     plot_carbon_footprint_history(env.world.countries)
     plot_number_of_plants(country1=env.world.countries[0], country2=env.world.countries[1], color_solar1='gold', color_solar2 = 'yellow', color_nuclear1='limegreen', color_nuclear2="lime", color_coal1='dimgray', color_coal2='silver')
+    plot_actions_per_country(env.world.countries)
+    plot_rewards(rewards_per_country)

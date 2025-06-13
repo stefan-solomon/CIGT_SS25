@@ -109,7 +109,7 @@ class Country:
         self.irradiation_data = {}
         self.budget = budget
         self.total_energy = total_energy
-        self.carbon_footprint = carbon_footprint
+        self.carbon_footprint = carbon_footprint  # in kg CO2
         self.monthly_funds = monthly_funds  # Monthly funds available for energy production
 
         self.weather_data = weather_data  # Dictionary with monthly irradiation data
@@ -120,12 +120,22 @@ class Country:
         self.n_nuclear_plants = 0
         self.n_decommissioned_coal_plants = 0
 
-        self.history = []
-
         # Initially fulfill the energy needs with coal power
         needed_energy = self.energy_demand
         n_plants_init = int(np.ceil(needed_energy / output_coal))
         self.n_coal_plants = n_plants_init
+
+        self.history = [{
+            'month': 0,
+            'population': self.population,
+            'budget': self.budget,
+            'total_energy': self.total_energy,
+            'energy_demand': self.energy_demand,
+            'carbon_footprint': self.carbon_footprint,
+            'n_coal_plants': self.n_coal_plants,
+            'n_solar_plants': self.n_solar_plants,
+            'n_nuclear_plants': self.n_nuclear_plants,
+        }]
     
     def commission_plant(self, plant_type):
         """Add a power plant of the specified type to the country."""
@@ -239,6 +249,7 @@ class World:
         self.countries = countries  # list of Country instances
         self.month = 0
         self.history = []  # optional global history
+        self.carbon_footprint = 0
 
     def compute_external_changes(self, country):
         """
@@ -269,6 +280,7 @@ class World:
             )
 
         self.month += 1
+        self.carbon_footprint = sum(country.carbon_footprint for country in self.countries)
 
     def run(self, months=12, action_schedule=None):
         """
@@ -337,22 +349,44 @@ class QLearningEnv():
         return (ns,nn,nc,
                 enough_budget_for_solar, enough_budget_for_nuclear,enough_energy_for_one_month,
                 enough_energy_for_two_months, enough_energy_for_three_months)
-    
+    def compute_carbon_footprint(self, country_self):
+        """
+        Compute the total carbon footprint of the world.
+        """
+        country_other = self.world.countries[1] if country_self == self.world.countries[0] else self.world.countries[0]
+
+        carbon_self = country_self.history[-1]['carbon_footprint']
+        
+        carbon_other = country_other.history[-1]['carbon_footprint']
+
+        carbon_increase_self = carbon_self - country_self.history[-2]['carbon_footprint']
+        carbon_increase_other = carbon_other - country_other.history[-2]['carbon_footprint']
+
+        #normalize carbon footprint by population
+        carbon_self_norm = carbon_self/country_self.population
+        carbon_other_norm = carbon_other/country_other.population
+        carbon_increase_self_norm  = carbon_increase_self/country_self.population
+        carbon_increase_other_norm = carbon_increase_other/country_other.population
+        total_carbon_norm = carbon_self_norm + carbon_other_norm
+        total_carbon_increase_norm = carbon_increase_self_norm + carbon_increase_other_norm
+
+        return total_carbon_norm, total_carbon_increase_norm
+        
+
     def _compute_reward(self, country):
         
         month_data = country.history[-1]
-        carbon = month_data['carbon_footprint']
-        if len(country.history) < 2:
-            carbon_increase = carbon
-        else:
-            carbon_increase = carbon - country.history[-2]['carbon_footprint']
+        
+        
         energy_deficit = month_data['total_energy'] - month_data['energy_demand']
         budget_deficit = month_data['budget']
-        dead = budget_deficit or (energy_deficit<0)
+        dead = (budget_deficit<0) or (energy_deficit<0)
+        
+        total_carbon_norm, total_carbon_increase_norm = self.compute_carbon_footprint(country)
 
         # Scale the reward terms:
-        carbon_increase_rew = carbon_increase * 1e-12  # Scale down carbon increase
-        total_carbon_rew = carbon * 1e-12  # Scale down total carbon footprint
+        carbon_increase_rew = total_carbon_increase_norm * 1e-12  # Scale down carbon increase
+        total_carbon_rew = total_carbon_norm * 1e-12  # Scale down total carbon footprint
         energy_deficit_rew = energy_deficit * 1e-8  # Scale down energy deficit
         budget_deficit_rew = budget_deficit * 1e-11  # Scale down budget deficit
         total_energy_rew = month_data['total_energy'] * 1e-8  # Scale down total energy
@@ -366,10 +400,18 @@ class QLearningEnv():
                     5 * total_energy_rew + \
                     3 * budget_rew +\
                     10 * decommissioned_coal_rew + \
-                    - 1000 * dead  # Large penalty for being dead
+                    - 10000 * dead  # Large penalty for being dead
         
 
-        
+        #print reward sources
+        print(f"Reward sources for {country.name}:")
+        print(f"  Carbon Increase: {-70*carbon_increase_rew:.2f}")
+        print(f"  Total Carbon reward: {-2*total_carbon_rew:.2f}")
+        print(f"total_energy: {5*total_energy_rew:.2f}")
+        print(f"budget: {3*budget_rew:.2f}")
+        print(f"decommissioned_coal: {10*decommissioned_coal_rew:.2f}")
+        print(f"dead penalty: {-100000*dead:.2f}")
+
         return reward, dead
 
     def step(self, action1, action2):
@@ -479,6 +521,62 @@ def plot_number_of_plants(country1 ,country2 , color_solar1, color_solar2, color
     
     plt.xlabel("Month")
     plt.ylabel("Number of Plants")
+    plt.title(title)
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+def get_actions_from_history(countries):
+    """
+    Extract actions from the history of each country.
+    """
+    actions = []
+    for country in countries:
+        action_list = []
+        for i in range(1, len(country.history)):
+            previous_month_data = country.history[i - 1]
+            month_data = country.history[i]
+            if month_data['n_solar_plants'] > previous_month_data['n_solar_plants']:
+                action_list.append("commission_solar")
+            elif month_data['n_solar_plants'] < previous_month_data['n_solar_plants']:
+                action_list.append("decommission_solar")
+            elif month_data['n_nuclear_plants'] > previous_month_data['n_nuclear_plants']:
+                action_list.append("commission_nuclear")
+            elif month_data['n_nuclear_plants'] < previous_month_data['n_nuclear_plants']:
+                action_list.append("decommission_nuclear")
+            elif month_data['n_coal_plants'] < previous_month_data['n_coal_plants']:
+                action_list.append("decommission_coal")
+            else:
+                action_list.append("nothing")
+        actions.append(action_list)
+    return actions
+
+def plot_actions_per_country(countries):
+    """
+    Plot the actions taken by each country over time.
+    """
+    actions = get_actions_from_history(countries)
+    plt.figure(figsize=(12, 8))
+    for i, country in enumerate(countries):
+        plt.plot(range(len(actions[i])), actions[i], label=country.name)
+    plt.xlabel("Month")
+    plt.ylabel("Actions")
+    plt.title("Actions per Country")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+def plot_rewards(rewards_per_country, title="Rewards per Country"):
+    """
+    Plot the rewards received by each country over time.
+    """
+
+    plt.figure(figsize=(12, 8))
+    for i, rewards in enumerate(rewards_per_country):
+        plt.plot(range(len(rewards)), rewards, label=f"Country {i+1}")
+
+    plt.xlabel("Month")
+    plt.ylabel("Reward")
     plt.title(title)
     plt.legend()
     plt.grid()

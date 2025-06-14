@@ -19,9 +19,9 @@ if __name__ == "__main__":
             }
     Indonesia_params = {
                 'name':'Indonesia',
-                'population': 281_000_000,
+                'population': 100_000_000,
                 'area': 80_000,
-                'budget': 10_000_000_000,
+                'budget': 20_000_000_000,
                 'total_energy': 0,
                 'energy_needed_per_person':0.12,
                 'carbon_footprint':0,
@@ -120,9 +120,9 @@ if __name__ == "__main__":
 
 
   
-    plot_budget_history(env.world.countries)
-    plot_energy_history(env.world.countries)
-    plot_carbon_footprint_history(env.world.countries)
-    plot_number_of_plants(country1=env.world.countries[0], country2=env.world.countries[1], color_solar1='gold', color_solar2 = 'yellow', color_nuclear1='limegreen', color_nuclear2="lime", color_coal1='dimgray', color_coal2='silver')
-    plot_actions_per_country(env.world.countries)
-    plot_rewards(rewards_per_country)
+    plot_budget_history(env.world.countries, folder = "first_run")
+    plot_energy_history(env.world.countries, folder = "first_run")
+    plot_carbon_footprint_history(env.world.countries, folder = "first_run")
+    plot_number_of_plants(country1=env.world.countries[0], country2=env.world.countries[1], color_solar1='gold', color_solar2 = 'yellow', color_nuclear1='limegreen', color_nuclear2="lime", color_coal1='dimgray', color_coal2='silver', folder = "first_run")
+    plot_actions_per_country(env.world.countries, folder = "first_run")
+    plot_rewards(rewards_per_country, folder = "first_run")

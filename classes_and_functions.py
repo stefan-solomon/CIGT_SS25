@@ -455,7 +455,7 @@ class QLearningEnv():
         return next_states, rewards, dones
     
 
-def plot_energy_history(countries, title="Country History"):
+def plot_energy_history(countries, folder, title="Country History"):
     """
     Plot the history of each country.
     """
@@ -469,25 +469,32 @@ def plot_energy_history(countries, title="Country History"):
     plt.title(title)
     plt.legend()
     plt.grid()
-    plt.show()
+    plt.savefig(folder + "/energy_history.png", dpi = 300, bbox_inches='tight')
 
-def plot_carbon_footprint_history(countries, title="Carbon Footprint History"):
+def plot_carbon_footprint_history(countries, folder, title="Carbon Footprint History"):
     """
     Plot the carbon footprint history of each country.
     """
     plt.figure(figsize=(12, 8))
+    test = countries[0]  # Assuming all countries have the same history structure
+    df = pd.DataFrame(test.history)
+    size = df.shape[0]
+    carbon_sum = np.zeros(size)
     for country in countries:
-        df = pd.DataFrame(country.history)
+        carbon_sum += df['carbon_footprint'].to_numpy()
+    for country in countries:
         plt.plot(df['month'], df['carbon_footprint'], label=f"{country.name} Carbon Footprint")
+    
+    plt.plot(df['month'], carbon_sum, label="Total Carbon Footprint", color='black', linestyle='--')
     
     plt.xlabel("Month")
     plt.ylabel("Carbon Footprint (kg CO2)")
     plt.title(title)
     plt.legend()
     plt.grid()
-    plt.show()
+    plt.savefig(folder + "/carbon_footprint_history.png", dpi = 300, bbox_inches='tight')
 
-def plot_budget_history(countries, title="Budget History"):
+def plot_budget_history(countries, folder, title="Budget History"):
     """
     Plot the budget history of each country.
     """
@@ -501,9 +508,9 @@ def plot_budget_history(countries, title="Budget History"):
     plt.title(title)
     plt.legend()
     plt.grid()
-    plt.show()
+    plt.savefig(folder + "/budget_history.png", dpi = 300, bbox_inches='tight')
 
-def plot_number_of_plants(country1 ,country2 , color_solar1, color_solar2, color_nuclear1, color_nuclear2, color_coal1, color_coal2, title="Number of Plants History"):
+def plot_number_of_plants(country1 ,country2 , color_solar1, color_solar2, color_nuclear1, color_nuclear2, color_coal1, color_coal2, folder, title="Number of Plants History"):
     """
     Plot the number of plants history of each country.
     """
@@ -524,8 +531,7 @@ def plot_number_of_plants(country1 ,country2 , color_solar1, color_solar2, color
     plt.title(title)
     plt.legend()
     plt.grid()
-    plt.show()
-
+    plt.savefig(folder + "/number_of_plants_history.png", dpi = 300, bbox_inches='tight')
 def get_actions_from_history(countries):
     """
     Extract actions from the history of each country.
@@ -551,7 +557,7 @@ def get_actions_from_history(countries):
         actions.append(action_list)
     return actions
 
-def plot_actions_per_country(countries):
+def plot_actions_per_country(countries, folder, title="Actions per Country"):
     """
     Plot the actions taken by each country over time.
     """
@@ -561,12 +567,12 @@ def plot_actions_per_country(countries):
         plt.plot(range(len(actions[i])), actions[i], label=country.name)
     plt.xlabel("Month")
     plt.ylabel("Actions")
-    plt.title("Actions per Country")
+    plt.title(title)
     plt.legend()
     plt.grid()
-    plt.show()
+    plt.savefig(folder + "/actions_per_country.png", dpi = 300, bbox_inches='tight')
 
-def plot_rewards(rewards_per_country, title="Rewards per Country"):
+def plot_rewards(rewards_per_country, folder, title="Rewards per Country"):
     """
     Plot the rewards received by each country over time.
     """
@@ -580,5 +586,5 @@ def plot_rewards(rewards_per_country, title="Rewards per Country"):
     plt.title(title)
     plt.legend()
     plt.grid()
-    plt.show()
+    plt.savefig(folder + "/rewards_per_country.png", dpi = 300, bbox_inches='tight')
         

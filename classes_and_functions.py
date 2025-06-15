@@ -188,7 +188,8 @@ class Country:
     def update(self, month_index, population_change=0, budget_change=5e8, total_energy_change=0):
         """Update the country's data for a given month."""
         month_of_year = month_index % 12 + 1
-        irradiation = self.weather_data[month_of_year]
+        # Calculate the irradiation and add gaussian noise
+        irradiation = self.weather_data[month_of_year] + np.random.normal(0, 0.1*self.weather_data[month_of_year])  # Adding noise to the irradiation value
         solar_output_per_plant = irradiation * SOLAR_PLANT_SURFACE * CONVERSION_EFFICIENCY / 1000 # in MWh
         solar_output = self.n_solar_plants * solar_output_per_plant  # Total solar output in MWh
         nuclear_output = self.n_nuclear_plants * output_nuclear  # Total nuclear output in MWh

@@ -1,17 +1,19 @@
 from classes_and_functions import *
+import argparse
 
 
-
+argparse = argparse.ArgumentParser()
+argparse.add_argument('--independent_carbon', action='store_true', help='Run the simulation with independent carbon footprints for each country')
 
 
 if __name__ == "__main__":
-
+    args = argparse.parse_args()
     Norway_params = {
                 'name': 'Norway',
                 'population': 6_000_000,
                 'area': 100_000,
                 'budget': 1e20,
-                'total_energy': 0,
+                'total_energy': 20_000_000,
                 'energy_needed_per_person': 0.58,
                 'carbon_footprint': 0,
                 'weather_data': IRRADIATION_DATA_NORWAY,
@@ -22,7 +24,7 @@ if __name__ == "__main__":
                 'population': 100_000_000,
                 'area': 80_000,
                 'budget': 1e20,
-                'total_energy': 0,
+                'total_energy': 20_000_000,
                 'energy_needed_per_person':0.12,
                 'carbon_footprint':0,
                 'weather_data': IRRADIATION_DATA_INDONESIA,
@@ -39,8 +41,8 @@ if __name__ == "__main__":
     n_episodes = 5000
     horizon = 12 * 10      # 12 months per episode
     n_countries = 2
-
-    env = QLearningEnv(Norway_params, Indonesia_params)
+    
+    env = QLearningEnv(Norway_params, Indonesia_params, independent_carbon=args.independent_carbon)
 
     # Q-tables
     Q_tables = [ dict() for _ in range(n_countries) ]
@@ -123,6 +125,7 @@ if __name__ == "__main__":
     plot_budget_history(env.world.countries, folder = "figures")
     plot_energy_history(env.world.countries, folder = "figures")
     plot_carbon_footprint_history(env.world.countries, folder = "figures")
+    plot_carbon_footprint_history(env.world.countries, folder = "figures", per_capita=True)
     plot_number_of_plants(country1=env.world.countries[0], country2=env.world.countries[1], color_solar1='gold', color_solar2 = 'yellow', color_nuclear1='limegreen', color_nuclear2="lime", color_coal1='dimgray', color_coal2='silver', folder = "figures")
     plot_actions_per_country(env.world.countries, folder = "figures")
     plot_rewards(rewards_per_country, folder = "figures")

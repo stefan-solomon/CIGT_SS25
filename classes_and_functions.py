@@ -310,12 +310,13 @@ class World:
 
 # === Define the QLearningEnv class ===
 class QLearningEnv():
-    def __init__(self,Country1_params, Country2_params):
+    def __init__(self,Country1_params, Country2_params, independent_carbon=False):
         self.Country1 = Country(**Country1_params)
         self.Country2 = Country(**Country2_params)
         self.Country1_params = Country1_params
         self.Country2_params = Country2_params
         self.world = World([self.Country1, self.Country2])
+        self.independent_carbon = independent_carbon
 
         self.max_plants = 10
         # Action indices → meaning
@@ -367,7 +368,8 @@ class QLearningEnv():
         carbon_increase_other_norm = carbon_increase_other/country_other.population
         total_carbon_norm = carbon_self_norm + carbon_other_norm
         total_carbon_increase_norm = carbon_increase_self_norm + carbon_increase_other_norm
-
+        if self.independent_carbon:
+            return carbon_self_norm, carbon_increase_self_norm
         return total_carbon_norm, total_carbon_increase_norm
         
 
@@ -459,7 +461,7 @@ def plot_energy_history(countries, folder, title="Country History"):
     plt.grid()
     plt.savefig(folder + "/energy_history.png", dpi = 300, bbox_inches='tight')
 
-def plot_carbon_footprint_history(countries, folder, title="Carbon Footprint History"):
+def plot_carbon_footprint_history(countries, folder, title="Carbon Footprint History", per_capita=False):
     """
     Plot the carbon footprint history of each country.
     """
@@ -471,11 +473,12 @@ def plot_carbon_footprint_history(countries, folder, title="Carbon Footprint His
     for country in countries:
         df = pd.DataFrame(country.history)
         carbon_sum += df['carbon_footprint'].to_numpy()
-    for country in countries:
-        df = pd.DataFrame(country.history)
-        plt.plot(df['month'], df['carbon_footprint'], label=f"{country.name} Carbon Footprint")
-    
-    plt.plot(df['month'], carbon_sum, label="Total Carbon Footprint", color='black', linestyle='--')
+        if per_capita:
+            plt.plot(df['month'], df['carbon_footprint'] / country.population, label=f"{country.name} Carbon Footprint per Capita")
+        else:
+            plt.plot(df['month'], df['carbon_footprint'], label=f"{country.name} Carbon Footprint")
+    if not per_capita:
+        plt.plot(df['month'], carbon_sum, label="Total Carbon Footprint", color='black', linestyle='--')
     
     plt.xlabel("Month")
     plt.ylabel("Carbon Footprint (kg CO2)")

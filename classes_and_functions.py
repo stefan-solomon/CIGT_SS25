@@ -395,10 +395,10 @@ class QLearningEnv():
         
         
         #3 * budget_rew +\
+        #5 * total_energy_rew + \
 
         reward = - 70 * carbon_increase_rew + \
                     - 2 * total_carbon_rew + \
-                    5 * total_energy_rew + \
                     10 * decommissioned_coal_rew + \
                     - 10000 * dead  # Large penalty for being dead
         

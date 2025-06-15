@@ -481,8 +481,10 @@ def plot_carbon_footprint_history(countries, folder, title="Carbon Footprint His
     size = df.shape[0]
     carbon_sum = np.zeros(size)
     for country in countries:
+        df = pd.DataFrame(test.history)
         carbon_sum += df['carbon_footprint'].to_numpy()
     for country in countries:
+        df = pd.DataFrame(test.history)
         plt.plot(df['month'], df['carbon_footprint'], label=f"{country.name} Carbon Footprint")
     
     plt.plot(df['month'], carbon_sum, label="Total Carbon Footprint", color='black', linestyle='--')

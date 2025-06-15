@@ -126,3 +126,5 @@ if __name__ == "__main__":
     plot_number_of_plants(country1=env.world.countries[0], country2=env.world.countries[1], color_solar1='gold', color_solar2 = 'yellow', color_nuclear1='limegreen', color_nuclear2="lime", color_coal1='dimgray', color_coal2='silver', folder = "figures")
     plot_actions_per_country(env.world.countries, folder = "figures")
     plot_rewards(rewards_per_country, folder = "figures")
+    for country in env.world.countries:
+        pie_plot_energy_production_sources(country, folder = "figures")

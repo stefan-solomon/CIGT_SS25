@@ -379,14 +379,10 @@ class QLearningEnv():
         energy_deficit = month_data['total_energy'] - month_data['energy_demand']
         dead = (energy_deficit<0)
         
-        total_carbon_norm, total_carbon_increase_norm = self.compute_carbon_footprint(country)
+        _, total_carbon_increase_norm = self.compute_carbon_footprint(country)
 
         # Scale the reward terms:
         carbon_increase_rew = total_carbon_increase_norm * 1e-1  # Scale down carbon increase
-        #total_carbon_rew = total_carbon_norm * 1e-12  # Scale down total carbon footprint
-        energy_deficit_rew = energy_deficit * 1e-8  # Scale down energy deficit
-        total_energy_rew = month_data['total_energy'] * 1e-8  # Scale down total energy
-        budget_rew = month_data['budget'] * 1e-11  # Scale down budget
         decommissioned_coal_rew = country.n_decommissioned_coal_plants
         
         
@@ -402,11 +398,7 @@ class QLearningEnv():
         #print reward sources
         print(f"Reward sources for {country.name}:")
         print(f"  Carbon Increase: {-70*carbon_increase_rew:.2f}")
-        #print(f"  Total Carbon reward: {-2*total_carbon_rew:.2f}")
-        print(f"total_energy: {5*total_energy_rew:.2f}")
-        print(f"budget: {3*budget_rew:.2f}")
-        #print(f"decommissioned_coal: {10*decommissioned_coal_rew:.2f}")
-        print(f"dead penalty: {-100000*dead:.2f}")
+        print(f"dead penalty: {-10000*dead:.2f}")
 
         return reward, dead
 
@@ -585,4 +577,92 @@ def plot_rewards(rewards_per_country, folder, title="Rewards per Country"):
     plt.legend()
     plt.grid()
     plt.savefig(folder + "/rewards_per_country.png", dpi = 300, bbox_inches='tight')
+def _format_pct_and_value(pct: float, total: float) -> str:
+    """Return a label like '23.1% (123 k MWh)' for the pie slices."""
+    absolute = pct * total / 100
+    return f"{pct:.1f}%\n({absolute:,.0f} MWh)"
+
+def pie_plot_energy_production_sources(
+    country,
+    folder = None,
+    *,
+    title: str = "Energy Production Distribution",
+    palette: str | list[str] = "pastel",
+    explode: tuple[float, float, float] = (0.03, 0.03, 0.03),
+) -> plt.Figure:
+    """
+    Create (and optionally save) a Seaborn-styled pie chart of energy-production mix.
+
+    Parameters
+    ----------
+    country : object
+        Must expose attributes: name, n_solar_plants, n_nuclear_plants, n_coal_plants
+        and dict weather_data (hourly/periodic irradiation values).
+    folder : str, optional
+        If given, the PNG will be saved here with a filename pie_chart_<country>.png.
+    title : str
+        Chart title prefix – country name will be appended automatically.
+    palette : str | list[str]
+        Any Seaborn palette name or list of custom colors.
+    explode : tuple of float
+        Fractional radial offset for each slice.
+    Returns
+    -------
+    matplotlib.figure.Figure
+    """
+    # ---------- data prep ----------
+    avg_irradiation = np.mean(list(country.weather_data.values()))
+    power_solar = (
+        country.n_solar_plants
+        * avg_irradiation
+        * SOLAR_PLANT_SURFACE
+        * CONVERSION_EFFICIENCY
+        / 1_000  # convert to MWh
+    )
+    power_nuclear = country.n_nuclear_plants * output_nuclear
+    power_coal = country.n_coal_plants * output_coal
+    
+    # --- build raw arrays -------------------------------------------------
+    sizes  = np.array([power_solar, power_nuclear, power_coal], dtype=float)
+    labels = np.array(["Solar", "Nuclear", "Coal"])
+    explode = np.array([0.04, 0.04, 0.04])
+
+    # --- strip out zero slices -------------------------------------------
+    non_zero = sizes > 0                        # boolean mask
+    sizes    = sizes[non_zero]                  # only positive values
+    labels   = labels[non_zero]
+    explode  = explode[non_zero]                # keep explode in sync
+    colors   = sns.color_palette(palette, len(sizes))
+
+    total = sizes.sum()                         # use the *new* total
+
+    fig, ax = plt.subplots(figsize=(7.5, 7.5))
+    wedges, texts, autotexts = ax.pie(
+        sizes,
+        labels=labels,
+        colors=colors,
+        explode=explode,
+        startangle=140,
+        autopct=lambda pct: (
+            f"{pct:.1f}%\n({pct*total/100:,.0f} MWh)"
+            if pct > 0            # <- hide any residual 0 % text
+            else ""
+        ),
+        pctdistance=0.8,
+        textprops={"fontsize": 11, "weight": "bold"},
+    )
+
+    ax.set_title(f"{title} – {country.name}", pad=18, fontsize=14, weight="bold")
+    ax.axis("equal")  # keep it circular
+
+    fig.tight_layout()
+
+    # ---------- optional save ----------
+    if folder:
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, f"pie_chart_{country.name}.png")
+        fig.savefig(path, dpi=300, bbox_inches="tight")
+        print(f"Saved chart to {path}")
+
+
         

@@ -13,7 +13,7 @@ if __name__ == "__main__":
                 'population': 6_000_000,
                 'area': 100_000,
                 'budget': 1e20,
-                'total_energy': 20_000_000,
+                'total_energy': 0,
                 'energy_needed_per_person': 0.58,
                 'carbon_footprint': 0,
                 'weather_data': IRRADIATION_DATA_NORWAY,
@@ -24,7 +24,7 @@ if __name__ == "__main__":
                 'population': 100_000_000,
                 'area': 80_000,
                 'budget': 1e20,
-                'total_energy': 20_000_000,
+                'total_energy': 0,
                 'energy_needed_per_person':0.12,
                 'carbon_footprint':0,
                 'weather_data': IRRADIATION_DATA_INDONESIA,
@@ -131,3 +131,4 @@ if __name__ == "__main__":
     plot_rewards(rewards_per_country, folder = "figures")
     for country in env.world.countries:
         pie_plot_energy_production_sources(country, folder = "figures")
+    plot_energy_production_clean_dirty(env.world.countries, folder = "figures")

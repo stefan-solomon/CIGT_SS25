@@ -227,6 +227,9 @@ class Country:
             'n_coal_plants': self.n_coal_plants,
             'n_solar_plants': self.n_solar_plants,
             'n_nuclear_plants': self.n_nuclear_plants,
+            'solar_output': solar_output,
+            'nuclear_output': nuclear_output,
+            'coal_output': coal_output
         })
 
     def act(self, action, type_of_plant):
@@ -317,6 +320,7 @@ class QLearningEnv():
         self.Country2_params = Country2_params
         self.world = World([self.Country1, self.Country2])
         self.independent_carbon = independent_carbon
+        print("INDEPENDENT CARBON:", self.independent_carbon)
 
         self.max_plants = 10
         # Action indices → meaning
@@ -334,20 +338,15 @@ class QLearningEnv():
 
 
     def reset(self):
-        self.__init__(self.Country1_params, self.Country2_params)
+        self.__init__(self.Country1_params, self.Country2_params, independent_carbon=self.independent_carbon)
         return self._get_state(self.Country1), self._get_state(self.Country2)
 
     def _get_state(self, country):
         ns = country.n_solar_plants
         nn = country.n_nuclear_plants
         nc = country.n_coal_plants
-        budget = country.budget
-        energy = country.total_energy
-        enough_energy_for_one_month = energy >= country.energy_demand
-        enough_energy_for_two_months = energy >= 2 * country.energy_demand
-        enough_energy_for_three_months = energy >= 3 * country.energy_demand
-        return (ns,nn,nc,enough_energy_for_one_month,
-                enough_energy_for_two_months, enough_energy_for_three_months)
+
+        return (ns,nn,nc)
     def compute_carbon_footprint(self, country_self):
         """
         Compute the total carbon footprint of the world.
@@ -366,43 +365,46 @@ class QLearningEnv():
         carbon_other_norm = carbon_other/country_other.population
         carbon_increase_self_norm  = carbon_increase_self/country_self.population
         carbon_increase_other_norm = carbon_increase_other/country_other.population
-        total_carbon_norm = carbon_self_norm + carbon_other_norm
-        total_carbon_increase_norm = carbon_increase_self_norm + carbon_increase_other_norm
-        if self.independent_carbon:
-            return carbon_self_norm, carbon_increase_self_norm
-        return total_carbon_norm, total_carbon_increase_norm
+        
+
+        return carbon_increase_self_norm, carbon_increase_other_norm, carbon_self_norm, carbon_other_norm
         
 
     def _compute_reward(self, country):
         
         month_data = country.history[-1]
-        
-        
-        energy_deficit = month_data['total_energy'] - month_data['energy_demand']
-        dead = (energy_deficit<0)
-        
-        _, total_carbon_increase_norm = self.compute_carbon_footprint(country)
 
+        other_country = self.world.countries[1] if country == self.world.countries[0] else self.world.countries[0]
+        carbon_increase_self_norm, carbon_increase_other_norm, carbon_self_norm, carbon_other_norm = self.compute_carbon_footprint(country)
+        total_carbon_increase_norm = carbon_increase_self_norm + carbon_increase_other_norm if not self.independent_carbon else carbon_increase_self_norm
         # Scale the reward terms:
-        carbon_increase_rew = total_carbon_increase_norm * 1e-1  # Scale down carbon increase
-        decommissioned_coal_rew = country.n_decommissioned_coal_plants
-        
-        
-        #3 * budget_rew +\
-        #5 * total_energy_rew + \
 
-        reward = -carbon_increase_rew + \
-                    - 10000 * dead  + \
-                    + 100*decommissioned_coal_rew
+        clean_energy_produced = month_data['solar_output'] + month_data['nuclear_output']
+        dirty_energy_produced = month_data['coal_output']
+
+        total_energy_produced = clean_energy_produced + dirty_energy_produced if (dirty_energy_produced > 0 or clean_energy_produced > 0) else 1
+        # Normalize the energy production by the total energy demand
+        clean_energy_produced_norm = clean_energy_produced / total_energy_produced
+        dirty_energy_produced_norm = dirty_energy_produced / total_energy_produced
+        energy_demand = country.energy_demand 
         
+        other_country_dirty_energy_produced = other_country.history[-1]['coal_output']
+        other_country_clean_energy_produced = other_country.history[-1]['solar_output'] + other_country.history[-1]['nuclear_output']
+        other_country_total_energy_produced = other_country_clean_energy_produced + other_country_dirty_energy_produced if (other_country_dirty_energy_produced > 0 or other_country_clean_energy_produced > 0) else 1
+        other_country_dirty_energy_produced_norm = other_country_dirty_energy_produced / other_country_total_energy_produced
+
+        reward = clean_energy_produced_norm - dirty_energy_produced_norm - other_country_dirty_energy_produced_norm + (total_energy_produced / energy_demand - 1)
+        
+        #print reward components
+        print(f"Country: {country.name}, Clean Energy Produced: {clean_energy_produced_norm:.2f}, Dirty Energy Produced: {dirty_energy_produced_norm:.2f}, "
+                f"Other Country Dirty Energy Produced: {other_country_dirty_energy_produced_norm:.2f}, "
+                f"Supply vs Demand reward: { (total_energy_produced / energy_demand - 1):.2f}, "
+                f"Reward: {reward:.2f}")
         
 
-        #print reward sources
-        print(f"Reward sources for {country.name}:")
-        print(f"  Carbon Increase: {-70*carbon_increase_rew:.2f}")
-        print(f"dead penalty: {-10000*dead:.2f}")
 
-        return reward, dead
+        dead = None
+        return reward, dead, clean_energy_produced_norm, dirty_energy_produced_norm
 
     def step(self, action1, action2):
         env_actions = []
@@ -436,11 +438,14 @@ class QLearningEnv():
         next_states = []
         rewards = []
         dones = []
+
         for country in self.world.countries:
-            reward, dead = self._compute_reward(country)
+            reward, dead, clean_energy_produced, dirty_energy_produced = self._compute_reward(country)
             rewards.append(reward)
             dones.append(dead)
             next_states.append(self._get_state(country))
+            country.clean_energy_production_list.append(clean_energy_produced)
+            country.dirty_energy_production_list.append(dirty_energy_produced)
 
         return next_states, rewards, dones
     
@@ -667,5 +672,26 @@ def pie_plot_energy_production_sources(
         fig.savefig(path, dpi=300, bbox_inches="tight")
         print(f"Saved chart to {path}")
 
+def plot_energy_production_clean_dirty(countries, folder, title="Energy Production percentage Clean vs Dirty"):
+    """
+    Plot the clean vs dirty energy production of each country.
+    """
+    plt.figure(figsize=(12, 8))
+    for country in countries:
+        df = pd.DataFrame(country.history)
+        clean_energy = df['solar_output'] + df['nuclear_output']
+        dirty_energy = df['coal_output']
+        total_energy = clean_energy + dirty_energy
+        clean_energy_pct = (clean_energy / total_energy) * 100
+        dirty_energy_pct = (dirty_energy / total_energy) * 100
+        plt.plot(df['month'],clean_energy_pct, label=f"{country.name} Clean Energy")
+        plt.plot(df['month'],dirty_energy_pct, label=f"{country.name} Dirty Energy")
+
+    plt.xlabel("Month")
+    plt.ylabel("Energy Production %")
+    plt.title(title)
+    plt.legend()
+    plt.grid()
+    plt.savefig(folder + "/energy_production_clean_dirty.png", dpi = 300, bbox_inches='tight')
 
         

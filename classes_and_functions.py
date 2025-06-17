@@ -392,9 +392,20 @@ class QLearningEnv():
         other_country_clean_energy_produced = other_country.history[-1]['solar_output'] + other_country.history[-1]['nuclear_output']
         other_country_total_energy_produced = other_country_clean_energy_produced + other_country_dirty_energy_produced if (other_country_dirty_energy_produced > 0 or other_country_clean_energy_produced > 0) else 1
         other_country_dirty_energy_produced_norm = other_country_dirty_energy_produced / other_country_total_energy_produced
+        lcoe_total = lcoe_coal + lcoe_nuclear + lcoe_solar
+        # Normalize the reward components
+        lcoe_nuclear_norm = lcoe_nuclear / lcoe_total
+        lcoe_solar_norm = lcoe_solar / lcoe_total
+        lcoe_coal_norm = lcoe_coal / lcoe_total
+        # Calculate the cost component of the reward
+        cost_solar = month_data['solar_output'] * lcoe_solar_norm
+        cost_nuclear = month_data['nuclear_output'] * lcoe_nuclear_norm
+        cost_coal = month_data['coal_output'] * lcoe_coal_norm
+        total_cost = cost_solar + cost_nuclear + cost_coal
 
-        reward = clean_energy_produced_norm - dirty_energy_produced_norm - other_country_dirty_energy_produced_norm + (total_energy_produced / energy_demand - 1)
+        reward = clean_energy_produced_norm - dirty_energy_produced_norm - other_country_dirty_energy_produced_norm + (total_energy_produced / energy_demand - 1) - total_cost
         
+
         #print reward components
         print(f"Country: {country.name}, Clean Energy Produced: {clean_energy_produced_norm:.2f}, Dirty Energy Produced: {dirty_energy_produced_norm:.2f}, "
                 f"Other Country Dirty Energy Produced: {other_country_dirty_energy_produced_norm:.2f}, "
@@ -404,7 +415,7 @@ class QLearningEnv():
 
 
         dead = None
-        return reward, dead, clean_energy_produced_norm, dirty_energy_produced_norm
+        return reward, dead
 
     def step(self, action1, action2):
         env_actions = []
@@ -440,12 +451,10 @@ class QLearningEnv():
         dones = []
 
         for country in self.world.countries:
-            reward, dead, clean_energy_produced, dirty_energy_produced = self._compute_reward(country)
+            reward, dead = self._compute_reward(country)
             rewards.append(reward)
             dones.append(dead)
             next_states.append(self._get_state(country))
-            country.clean_energy_production_list.append(clean_energy_produced)
-            country.dirty_energy_production_list.append(dirty_energy_produced)
 
         return next_states, rewards, dones
     

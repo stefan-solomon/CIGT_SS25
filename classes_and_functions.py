@@ -397,20 +397,20 @@ class QLearningEnv():
         lcoe_nuclear_norm = lcoe_nuclear / lcoe_total
         lcoe_solar_norm = lcoe_solar / lcoe_total
         lcoe_coal_norm = lcoe_coal / lcoe_total
-        # Calculate the cost component of the reward
-        # cost_solar = month_data['solar_output'] * lcoe_solar_norm
-        # cost_nuclear = month_data['nuclear_output'] * lcoe_nuclear_norm
-        # cost_coal = month_data['coal_output'] * lcoe_coal_norm
-        # total_cost = cost_solar + cost_nuclear + cost_coal
 
 
-        reward = clean_energy_produced_norm - dirty_energy_produced_norm - other_country_dirty_energy_produced_norm + (total_energy_produced / energy_demand - 1) 
+        total_number_of_plants = country.n_solar_plants + country.n_nuclear_plants + country.n_coal_plants
+        cost_penalty = (lcoe_solar_norm * country.n_solar_plants + lcoe_nuclear_norm * country.n_nuclear_plants + lcoe_coal_norm * country.n_coal_plants)/ total_number_of_plants if total_number_of_plants > 0 else 0
+        
+        supply_vs_demand_penalty = min(2,(total_energy_produced / energy_demand - 1))
+        reward = clean_energy_produced_norm - dirty_energy_produced_norm - other_country_dirty_energy_produced_norm - cost_penalty + supply_vs_demand_penalty
         
 
         #print reward components
         print(f"Country: {country.name}, Clean Energy Produced: {clean_energy_produced_norm:.2f}, Dirty Energy Produced: {dirty_energy_produced_norm:.2f}, "
                 f"Other Country Dirty Energy Produced: {other_country_dirty_energy_produced_norm:.2f}, "
                 f"Supply vs Demand reward: { (total_energy_produced / energy_demand - 1):.2f}, "
+                f"Cost Penalty: {-cost_penalty:.2f}, "
                 f"Reward: {reward:.2f}")
         
 

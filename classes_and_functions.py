@@ -54,6 +54,21 @@ IRRADIATION_DATA_EGYPT = {
     12: 4.2    # December
 }
 
+IRRADIATION_DATA_GERMANY = {
+    1:  1.25,   # January
+    2:  1.875,  # February
+    3:  3.125,  # March
+    4:  4.583,  # April
+    5:  6.041,  # May
+    6:  6.458,  # June
+    7:  6.25,   # July
+    8:  5.833,  # August
+    9:  4.583,  # September
+    10: 3.125,  # October
+    11: 1.666,  # November
+    12: 1.041   # December
+}
+
 SOLAR_PLANT_SURFACE = 100_000 # Average example area in m^2 
 CONVERSION_EFFICIENCY = 0.18  # Average conversion efficiency of solar panels
 
@@ -102,7 +117,7 @@ energy_requirement_per_person = 0.4 # in MWh / month
 
 # === Define the Country class ===
 class Country:
-    def __init__(self, name, population, area, budget, total_energy, energy_needed_per_person, carbon_footprint, weather_data, monthly_funds):
+    def __init__(self, name, population, area, budget, total_energy, energy_needed_per_person, carbon_footprint, weather_data, monthly_funds, nuclear_cap):
         self.name = name
         self.population = population
         self.area = area
@@ -118,6 +133,7 @@ class Country:
         self.energy_demand = self.population * self.energy_needed_per_person
         self.n_solar_plants = 0
         self.n_nuclear_plants = 0
+        self.nuclear_cap = nuclear_cap  # Maximum number of nuclear plants allowed
         self.n_decommissioned_coal_plants = 0
 
         # Initially fulfill the energy needs with coal power
@@ -369,6 +385,16 @@ class QLearningEnv():
 
         return carbon_increase_self_norm, carbon_increase_other_norm, carbon_self_norm, carbon_other_norm
         
+    def compute_budget_deficit(self, country_self):
+        """
+        Compute the budget deficit of the country.
+        """
+        operating_costs = country_self.n_solar_plants * lcoe_solar + country_self.n_nuclear_plants * lcoe_nuclear + country_self.n_coal_plants * lcoe_coal
+        energy_funds = country_self.monthly_funds
+
+        budget_deficit = - operating_costs + energy_funds
+
+        return budget_deficit
 
     def _compute_reward(self, country):
         
@@ -377,8 +403,9 @@ class QLearningEnv():
         other_country = self.world.countries[1] if country == self.world.countries[0] else self.world.countries[0]
         carbon_increase_self_norm, carbon_increase_other_norm, carbon_self_norm, carbon_other_norm = self.compute_carbon_footprint(country)
         total_carbon_increase_norm = carbon_increase_self_norm + carbon_increase_other_norm if not self.independent_carbon else carbon_increase_self_norm
+        budget_deficit = self.compute_budget_deficit(country)
         # Scale the reward terms:
-
+        budget_deficit_norm = budget_deficit / 1e9  # Normalize by a billion EUR
         clean_energy_produced = month_data['solar_output'] + month_data['nuclear_output']
         dirty_energy_produced = month_data['coal_output']
 
@@ -393,6 +420,7 @@ class QLearningEnv():
         other_country_total_energy_produced = other_country_clean_energy_produced + other_country_dirty_energy_produced if (other_country_dirty_energy_produced > 0 or other_country_clean_energy_produced > 0) else 1
         other_country_dirty_energy_produced_norm = other_country_dirty_energy_produced / other_country_total_energy_produced
         lcoe_total = lcoe_coal + lcoe_nuclear + lcoe_solar
+        nuclear_overbuilding = - max(country.n_nuclear_plants - country.nuclear_cap, 0) * 100000 # This is a penalty for overbuilding nuclear plants beyond the cap
         # Normalize the reward components
         lcoe_nuclear_norm = lcoe_nuclear / lcoe_total
         lcoe_solar_norm = lcoe_solar / lcoe_total
@@ -404,7 +432,8 @@ class QLearningEnv():
         # total_cost = cost_solar + cost_nuclear + cost_coal
 
 
-        reward = clean_energy_produced_norm - dirty_energy_produced_norm - other_country_dirty_energy_produced_norm + (total_energy_produced / energy_demand - 1) 
+        reward = 5 * clean_energy_produced_norm - 3 * dirty_energy_produced_norm - other_country_dirty_energy_produced_norm + (total_energy_produced / energy_demand - 1) + \
+                nuclear_overbuilding - 0.2 * budget_deficit_norm
         
 
         #print reward components
@@ -587,7 +616,7 @@ def plot_rewards(rewards_per_country, folder, title="Rewards per Country"):
 
     plt.figure(figsize=(12, 8))
     for i, rewards in enumerate(rewards_per_country):
-        plt.plot(range(len(rewards)), rewards, label=f"Country {i+1}")
+        plt.plot(range(len(rewards)), rewards, label= f"Country {i + 1} Rewards")
 
     plt.xlabel("Month")
     plt.ylabel("Reward")
@@ -595,6 +624,7 @@ def plot_rewards(rewards_per_country, folder, title="Rewards per Country"):
     plt.legend()
     plt.grid()
     plt.savefig(folder + "/rewards_per_country.png", dpi = 300, bbox_inches='tight')
+
 def _format_pct_and_value(pct: float, total: float) -> str:
     """Return a label like '23.1% (123 k MWh)' for the pie slices."""
     absolute = pct * total / 100

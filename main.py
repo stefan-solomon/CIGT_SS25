@@ -17,7 +17,8 @@ if __name__ == "__main__":
                 'energy_needed_per_person': 0.58,
                 'carbon_footprint': 0,
                 'weather_data': IRRADIATION_DATA_NORWAY,
-                'monthly_funds': 3_000_000_000
+                'monthly_funds': 3_000_000_000,
+                'nuclear_cap': 20 # Maximum number of nuclear plants allowed
             }
     Indonesia_params = {
                 'name':'Indonesia',
@@ -28,21 +29,46 @@ if __name__ == "__main__":
                 'energy_needed_per_person':0.12,
                 'carbon_footprint':0,
                 'weather_data': IRRADIATION_DATA_INDONESIA,
-                'monthly_funds': 4_500_000_000
+                'monthly_funds': 4_500_000_000,
+                'nuclear_cap': 40 # Maximum number of nuclear plants allowed
     }
 
-    
+    Egypt_params = {
+                'name':'Egypt',
+                'population': 110_000_000,
+                'area': 100_000,
+                'budget': 1e20,
+                'total_energy': 0,
+                'energy_needed_per_person':0.15,
+                'carbon_footprint':0,
+                'weather_data': IRRADIATION_DATA_EGYPT,
+                'monthly_funds': 3_000_000_000,
+                'nuclear_cap': 50 # Maximum number of nuclear plants allowed
+    }
+
+    Germany_params = {
+                'name': 'Germany',
+                'population': 80_000_000,
+                'area': 100_000,
+                'budget': 1e20,
+                'total_energy': 0,
+                'energy_needed_per_person': 0.7,
+                'carbon_footprint': 0,
+                'weather_data': IRRADIATION_DATA_GERMANY,
+                'monthly_funds': 15_000_000_000,
+                'nuclear_cap': 60 # Maximum number of nuclear plants allowed
+    }
 
 
     # Q-learning hyperparameters
     alpha = 0.1       # learning rate
     gamma = 0.9       # discount factor
-    epsilon = 0.2     # epsilon for ε-greedy
+    epsilon = 0.3     # epsilon for ε-greedy
     n_episodes = 5000
     horizon = 12 * 10      # 12 months per episode
     n_countries = 2
     
-    env = QLearningEnv(Norway_params, Indonesia_params, independent_carbon=args.independent_carbon)
+    env = QLearningEnv(Germany_params, Indonesia_params, independent_carbon=args.independent_carbon)
 
     # Q-tables
     Q_tables = [ dict() for _ in range(n_countries) ]
@@ -121,14 +147,16 @@ if __name__ == "__main__":
         rewards_per_country[1].append(rewards[1])
 
 
+    figure_folder = "germany_vs_indonesia"
+    os.makedirs(figure_folder, exist_ok=True)
   
-    plot_budget_history(env.world.countries, folder = "figures")
-    plot_energy_history(env.world.countries, folder = "figures")
-    plot_carbon_footprint_history(env.world.countries, folder = "figures")
-    plot_carbon_footprint_history(env.world.countries, folder = "figures", per_capita=True)
-    plot_number_of_plants(country1=env.world.countries[0], country2=env.world.countries[1], color_solar1='gold', color_solar2 = 'yellow', color_nuclear1='limegreen', color_nuclear2="lime", color_coal1='dimgray', color_coal2='silver', folder = "figures")
-    plot_actions_per_country(env.world.countries, folder = "figures")
-    plot_rewards(rewards_per_country, folder = "figures")
+    plot_budget_history(env.world.countries, folder = figure_folder)
+    plot_energy_history(env.world.countries, folder = figure_folder)
+    plot_carbon_footprint_history(env.world.countries, folder = figure_folder)
+    plot_carbon_footprint_history(env.world.countries, folder = figure_folder, per_capita=True)
+    plot_number_of_plants(country1=env.world.countries[0], country2=env.world.countries[1], color_solar1='gold', color_solar2 = 'yellow', color_nuclear1='limegreen', color_nuclear2="lime", color_coal1='dimgray', color_coal2='silver', folder = figure_folder)
+    plot_actions_per_country(env.world.countries, folder = figure_folder)
+    plot_rewards(rewards_per_country, folder = figure_folder)
     for country in env.world.countries:
-        pie_plot_energy_production_sources(country, folder = "figures")
-    plot_energy_production_clean_dirty(env.world.countries, folder = "figures")
+        pie_plot_energy_production_sources(country, folder = figure_folder)
+    plot_energy_production_clean_dirty(env.world.countries, folder = figure_folder)

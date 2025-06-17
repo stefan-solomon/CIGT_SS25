@@ -398,12 +398,13 @@ class QLearningEnv():
         lcoe_solar_norm = lcoe_solar / lcoe_total
         lcoe_coal_norm = lcoe_coal / lcoe_total
         # Calculate the cost component of the reward
-        cost_solar = month_data['solar_output'] * lcoe_solar_norm
-        cost_nuclear = month_data['nuclear_output'] * lcoe_nuclear_norm
-        cost_coal = month_data['coal_output'] * lcoe_coal_norm
-        total_cost = cost_solar + cost_nuclear + cost_coal
+        # cost_solar = month_data['solar_output'] * lcoe_solar_norm
+        # cost_nuclear = month_data['nuclear_output'] * lcoe_nuclear_norm
+        # cost_coal = month_data['coal_output'] * lcoe_coal_norm
+        # total_cost = cost_solar + cost_nuclear + cost_coal
 
-        reward = clean_energy_produced_norm - dirty_energy_produced_norm - other_country_dirty_energy_produced_norm + (total_energy_produced / energy_demand - 1) - total_cost
+
+        reward = clean_energy_produced_norm - dirty_energy_produced_norm - other_country_dirty_energy_produced_norm + (total_energy_produced / energy_demand - 1) 
         
 
         #print reward components

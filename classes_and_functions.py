@@ -329,38 +329,50 @@ class World:
 
 # === Define the QLearningEnv class ===
 class QLearningEnv():
-    def __init__(self,Country1_params, Country2_params, independent_carbon=False):
+    def __init__(self,Country1_params, Country2_params, independent_carbon=False, no_nuclear=False):
         self.Country1 = Country(**Country1_params)
         self.Country2 = Country(**Country2_params)
         self.Country1_params = Country1_params
         self.Country2_params = Country2_params
         self.world = World([self.Country1, self.Country2])
         self.independent_carbon = independent_carbon
+        self.no_nuclear = no_nuclear
         print("INDEPENDENT CARBON:", self.independent_carbon)
 
         self.max_plants = 10
         # Action indices → meaning
-        self.action_map = {
-            0: 'nothing',
-            1: 'commission_solar',
-            2: 'commission_nuclear',
-            3: 'decommission_solar',
-            4: 'decommission_nuclear',
-            5: 'decommission_coal'
-        }
+        if no_nuclear:
+            self.action_map = {
+                0: 'nothing',
+                1: 'commission_solar',
+                2: 'decommission_solar',
+                3: 'decommission_coal'
+            }
+        else:
+            self.action_map = {
+                0: 'nothing',
+                1: 'commission_solar',
+                2: 'commission_nuclear',
+                3: 'decommission_solar',
+                4: 'decommission_nuclear',
+                5: 'decommission_coal'
+            }
 
         self.n_actions = len(self.action_map)
 
 
 
     def reset(self):
-        self.__init__(self.Country1_params, self.Country2_params, independent_carbon=self.independent_carbon)
+        self.__init__(self.Country1_params, self.Country2_params, independent_carbon=self.independent_carbon, no_nuclear=self.no_nuclear) 
         return self._get_state(self.Country1), self._get_state(self.Country2)
 
     def _get_state(self, country):
         ns = country.n_solar_plants
         nn = country.n_nuclear_plants
         nc = country.n_coal_plants
+
+        if self.no_nuclear:
+            return (ns, nc)
 
         return (ns,nn,nc)
     def compute_carbon_footprint(self, country_self):
@@ -430,7 +442,7 @@ class QLearningEnv():
         total_number_of_plants = country.n_solar_plants + country.n_nuclear_plants + country.n_coal_plants
         cost_penalty = (lcoe_solar_norm * country.n_solar_plants + lcoe_nuclear_norm * country.n_nuclear_plants + lcoe_coal_norm * country.n_coal_plants)/ total_number_of_plants if total_number_of_plants > 0 else 0
         
-        supply_vs_demand_penalty = min(2,(total_energy_produced / energy_demand - 1))
+        supply_vs_demand_penalty = min(1,(total_energy_produced / energy_demand - 1))
         reward = clean_energy_produced_norm - dirty_energy_produced_norm - other_country_dirty_energy_produced_norm - cost_penalty + supply_vs_demand_penalty
         
 
@@ -450,20 +462,30 @@ class QLearningEnv():
         env_actions = []
         action_list = []
         for action in [action1, action2]:
-            # Infra actions
-            if action == 1:
-                action_list.append({'action': 'commission', 'type': 'solar', 'number': 1})
-            elif action == 2:
-                action_list.append({'action': 'commission', 'type': 'nuclear', 'number': 1})
-            elif action == 3:
-                action_list.append({'action': 'decommission', 'type': 'solar', 'number': 1})
-            elif action == 4:
-                action_list.append({'action': 'decommission', 'type': 'nuclear', 'number': 1})
-            elif action == 5:
-                action_list.append({'action': 'decommission', 'type': 'coal', 'number': 1})
+            if self.no_nuclear:
+                if action == 1:
+                    action_list.append({'action': 'commission', 'type': 'solar', 'number': 1})
+                elif action == 2:
+                    action_list.append({'action': 'decommission', 'type': 'solar', 'number': 1})
+                elif action == 3:
+                    action_list.append({'action': 'decommission', 'type': 'coal', 'number': 1})
+                else:
+                    action_list.append({'action': 'nothing'})
+                # 0 → do nothing
             else:
-                action_list.append({'action': 'nothing'})
-            # 0 → do nothing
+                if action == 1:
+                    action_list.append({'action': 'commission', 'type': 'solar', 'number': 1})
+                elif action == 2:
+                    action_list.append({'action': 'commission', 'type': 'nuclear', 'number': 1})
+                elif action == 3:
+                    action_list.append({'action': 'decommission', 'type': 'solar', 'number': 1})
+                elif action == 4:
+                    action_list.append({'action': 'decommission', 'type': 'nuclear', 'number': 1})
+                elif action == 5:
+                    action_list.append({'action': 'decommission', 'type': 'coal', 'number': 1})
+                else:
+                    action_list.append({'action': 'nothing'})
+                # 0 → do nothing
 
         
         for i in range(len(self.world.countries)):

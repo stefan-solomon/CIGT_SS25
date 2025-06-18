@@ -4,7 +4,7 @@ import argparse
 
 argparse = argparse.ArgumentParser()
 argparse.add_argument('--independent_carbon', action='store_true', help='Run the simulation with independent carbon footprints for each country')
-
+argparse.add_argument('--no_nuclear', action='store_true', help='Run the simulation without nuclear energy')
 
 if __name__ == "__main__":
     args = argparse.parse_args()
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     horizon = 12 * 10      # 12 months per episode
     n_countries = 2
     
-    env = QLearningEnv(Germany_params, Indonesia_params, independent_carbon=args.independent_carbon)
+    env = QLearningEnv(Germany_params, Indonesia_params, independent_carbon=args.independent_carbon, no_nuclear=args.no_nuclear)
 
     # Q-tables
     Q_tables = [ dict() for _ in range(n_countries) ]

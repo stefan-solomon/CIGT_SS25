@@ -2,6 +2,7 @@ from classes_and_functions import *
 import argparse
 
 
+
 argparse = argparse.ArgumentParser()
 argparse.add_argument('--independent_carbon', action='store_true', help='Run the simulation with independent carbon footprints for each country')
 argparse.add_argument('--no_nuclear', action='store_true', help='Run the simulation without nuclear energy')
@@ -10,22 +11,22 @@ argparse.add_argument('--country2', type=str, default='Indonesia', help='Second 
 
 def get_country_params(country1, country2):
     params1, params2 = None, None
-    if country1 == 'Germany':
+    if country1.lower() == 'germany':
         params1 = Germany_params
-    elif country1 == 'Norway':
+    elif country1.lower() == 'norway':
         params1 = Norway_params
-    elif country1 == 'Indonesia':
+    elif country1.lower() == 'indonesia':
         params1 = Indonesia_params
-    elif country1 == 'Egypt':
+    elif country1.lower() == 'egypt':
         params1 = Egypt_params
 
-    if country2 == 'Germany':
+    if country2.lower() == 'germany':
         params2 = Germany_params
-    elif country2 == 'Norway':
+    elif country2.lower() == 'norway':
         params2 = Norway_params
-    elif country2 == 'Indonesia':
+    elif country2.lower() == 'indonesia':
         params2 = Indonesia_params
-    elif country2 == 'Egypt':
+    elif country2.lower() == 'egypt':
         params2 = Egypt_params
     return params1, params2
 

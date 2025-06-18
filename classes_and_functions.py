@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
+#check if folder "figures" exists, if not create it
+if not os.path.exists("figures"):
+    os.makedirs("figures")
+
 # Important Parameters
 # Irradiation data for each month - transduction to solar energy
 # Values in kWh/m^2
@@ -514,10 +518,15 @@ def plot_energy_history(countries, folder, title="Country History"):
     """
     Plot the history of each country.
     """
+    names = [country.name for country in countries]
+    if countries[0].name == countries[1].name:
+        names[1] = names[1] + " (2)"
+
     plt.figure(figsize=(12, 8))
-    for country in countries:
+
+    for i, country in enumerate(countries):
         df = pd.DataFrame(country.history)
-        plt.plot(df['month'], df['total_energy'], label=f"{country.name} Total Energy")
+        plt.plot(df['month'], df['total_energy'], label=f"{names[i]} Total Energy")
     
     plt.xlabel("Month")
     plt.ylabel("Value")
@@ -530,18 +539,22 @@ def plot_carbon_footprint_history(countries, folder, title="Carbon Footprint His
     """
     Plot the carbon footprint history of each country.
     """
+    names = [country.name for country in countries]
+    if countries[0].name == countries[1].name:
+        names[1] = names[1] + " (2)"
     plt.figure(figsize=(12, 8))
     test = countries[0]  # Assuming all countries have the same history structure
     df = pd.DataFrame(test.history)
     size = df.shape[0]
     carbon_sum = np.zeros(size)
-    for country in countries:
+    
+    for i, country in enumerate(countries):
         df = pd.DataFrame(country.history)
         carbon_sum += df['carbon_footprint'].to_numpy()
         if per_capita:
-            plt.plot(df['month'], df['carbon_footprint'] / country.population, label=f"{country.name} Carbon Footprint per Capita")
+            plt.plot(df['month'], df['carbon_footprint'] / country.population, label=f"{names[i]} Carbon Footprint per Capita")
         else:
-            plt.plot(df['month'], df['carbon_footprint'], label=f"{country.name} Carbon Footprint")
+            plt.plot(df['month'], df['carbon_footprint'], label=f"{names[i]} Carbon Footprint")
     if not per_capita:
         plt.plot(df['month'], carbon_sum, label="Total Carbon Footprint", color='black', linestyle='--')
     
@@ -556,10 +569,14 @@ def plot_budget_history(countries, folder, title="Budget History"):
     """
     Plot the budget history of each country.
     """
+    
     plt.figure(figsize=(12, 8))
-    for country in countries:
+    names = [country.name for country in countries]
+    if countries[0].name == countries[1].name:
+        names[1] = names[1] + " (2)"
+    for i,country in enumerate(countries):
         df = pd.DataFrame(country.history)
-        plt.plot(df['month'], df['budget'], label=f"{country.name} Budget")
+        plt.plot(df['month'], df['budget'], label=f"{names[i]} Budget")
     
     plt.xlabel("Month")
     plt.ylabel("Budget (EUR)")
@@ -572,17 +589,20 @@ def plot_number_of_plants(country1 ,country2 , color_solar1, color_solar2, color
     """
     Plot the number of plants history of each country.
     """
+    names = [country1.name, country2.name]
+    if country1.name == country2.name:
+        names[1] = names[1] + " (2)"
     plt.figure(figsize=(12, 8))
     
     df1 = pd.DataFrame(country1.history)
     df2 = pd.DataFrame(country2.history)
 
-    plt.plot(df1['month'], df1['n_solar_plants'], color = color_solar1, label=f"{country1.name} Solar Plants")
-    plt.plot(df1['month'], df1['n_nuclear_plants'], color = color_nuclear1, label=f"{country1.name} Nuclear Plants")
-    plt.plot(df1['month'], df1['n_coal_plants'], color = color_coal1, label=f"{country1.name} Coal Plants")
-    plt.plot(df2['month'], df2['n_solar_plants'], color = color_solar2, label=f"{country2.name} Solar Plants")
-    plt.plot(df2['month'], df2['n_nuclear_plants'], color = color_nuclear2, label=f"{country2.name} Nuclear Plants")
-    plt.plot(df2['month'], df2['n_coal_plants'], color = color_coal2, label=f"{country2.name} Coal Plants")
+    plt.plot(df1['month'], df1['n_solar_plants'], color = color_solar1, label=f"{names[0]} Solar Plants")
+    plt.plot(df1['month'], df1['n_nuclear_plants'], color = color_nuclear1, label=f"{names[0]} Nuclear Plants")
+    plt.plot(df1['month'], df1['n_coal_plants'], color = color_coal1, label=f"{names[0]} Coal Plants")
+    plt.plot(df2['month'], df2['n_solar_plants'], color = color_solar2, label=f"{names[1]} Solar Plants")
+    plt.plot(df2['month'], df2['n_nuclear_plants'], color = color_nuclear2, label=f"{names[1]} Nuclear Plants")
+    plt.plot(df2['month'], df2['n_coal_plants'], color = color_coal2, label=f"{names[1]} Coal Plants")
     
     plt.xlabel("Month")
     plt.ylabel("Number of Plants")
@@ -619,10 +639,13 @@ def plot_actions_per_country(countries, folder, title="Actions per Country"):
     """
     Plot the actions taken by each country over time.
     """
+    names = [country.name for country in countries]
+    if countries[0].name == countries[1].name:
+        names[1] = names[1] + " (2)"
     actions = get_actions_from_history(countries)
     plt.figure(figsize=(12, 8))
     for i, country in enumerate(countries):
-        plt.plot(range(len(actions[i])), actions[i], label=country.name)
+        plt.plot(range(len(actions[i])), actions[i], label=names[i])
     plt.xlabel("Month")
     plt.ylabel("Actions")
     plt.title(title)
@@ -634,7 +657,7 @@ def plot_rewards(rewards_per_country, folder, title="Rewards per Country"):
     """
     Plot the rewards received by each country over time.
     """
-
+    
     plt.figure(figsize=(12, 8))
     for i, rewards in enumerate(rewards_per_country):
         plt.plot(range(len(rewards)), rewards, label= f"Country {i + 1} Rewards")
@@ -657,7 +680,7 @@ def pie_plot_energy_production_sources(
     *,
     title: str = "Energy Production Distribution",
     palette: str | list[str] = "pastel",
-    explode: tuple[float, float, float] = (0.03, 0.03, 0.03),
+    explode: tuple[float, float, float] = (0.03, 0.03, 0.03), name="template",
 ) -> plt.Figure:
     """
     Create (and optionally save) a Seaborn-styled pie chart of energy-production mix.
@@ -680,6 +703,7 @@ def pie_plot_energy_production_sources(
     matplotlib.figure.Figure
     """
     # ---------- data prep ----------
+    
     avg_irradiation = np.mean(list(country.weather_data.values()))
     power_solar = (
         country.n_solar_plants
@@ -721,7 +745,7 @@ def pie_plot_energy_production_sources(
         textprops={"fontsize": 11, "weight": "bold"},
     )
 
-    ax.set_title(f"{title} – {country.name}", pad=18, fontsize=14, weight="bold")
+    ax.set_title(f"{title} – {name}", pad=18, fontsize=14, weight="bold")
     ax.axis("equal")  # keep it circular
 
     fig.tight_layout()
@@ -729,7 +753,7 @@ def pie_plot_energy_production_sources(
     # ---------- optional save ----------
     if folder:
         os.makedirs(folder, exist_ok=True)
-        path = os.path.join(folder, f"pie_chart_{country.name}.png")
+        path = os.path.join(folder, f"pie_chart_{name}.png")
         fig.savefig(path, dpi=300, bbox_inches="tight")
         print(f"Saved chart to {path}")
 
@@ -737,16 +761,19 @@ def plot_energy_production_clean_dirty(countries, folder, title="Energy Producti
     """
     Plot the clean vs dirty energy production of each country.
     """
+    names = [country.name for country in countries]
+    if countries[0].name == countries[1].name:
+        names[1] = names[1] + " (2)"
     plt.figure(figsize=(12, 8))
-    for country in countries:
+    for i, country in enumerate(countries):
         df = pd.DataFrame(country.history)
         clean_energy = df['solar_output'] + df['nuclear_output']
         dirty_energy = df['coal_output']
         total_energy = clean_energy + dirty_energy
         clean_energy_pct = (clean_energy / total_energy) * 100
         dirty_energy_pct = (dirty_energy / total_energy) * 100
-        plt.plot(df['month'],clean_energy_pct, label=f"{country.name} Clean Energy")
-        plt.plot(df['month'],dirty_energy_pct, label=f"{country.name} Dirty Energy")
+        plt.plot(df['month'],clean_energy_pct, label=f"{names[i]} Clean Energy")
+        plt.plot(df['month'],dirty_energy_pct, label=f"{names[i]} Dirty Energy")
 
     plt.xlabel("Month")
     plt.ylabel("Energy Production %")

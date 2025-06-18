@@ -68,7 +68,7 @@ if __name__ == "__main__":
     horizon = 12 * 10      # 12 months per episode
     n_countries = 2
     
-    env = QLearningEnv(Germany_params, Indonesia_params, independent_carbon=args.independent_carbon, no_nuclear=args.no_nuclear)
+    env = QLearningEnv(Germany_params, Indonesia_params, independent_carbon=args.independent_carbon,no_nuclear=args.no_nuclear)
 
     # Q-tables
     Q_tables = [ dict() for _ in range(n_countries) ]
@@ -146,8 +146,9 @@ if __name__ == "__main__":
         rewards_per_country[0].append(rewards[0])
         rewards_per_country[1].append(rewards[1])
 
-
-    figure_folder = "germany_vs_indonesia"
+    name_independent = "_independent" if args.independent_carbon else ""
+    name_no_nuclear = "_no_nuclear" if args.no_nuclear else ""
+    figure_folder = f"figures/{env.world.countries[0].name}_vs_{env.world.countries[1].name}{name_independent}{name_no_nuclear}"
     os.makedirs(figure_folder, exist_ok=True)
   
     plot_budget_history(env.world.countries, folder = figure_folder)
@@ -157,6 +158,10 @@ if __name__ == "__main__":
     plot_number_of_plants(country1=env.world.countries[0], country2=env.world.countries[1], color_solar1='gold', color_solar2 = 'yellow', color_nuclear1='limegreen', color_nuclear2="lime", color_coal1='dimgray', color_coal2='silver', folder = figure_folder)
     plot_actions_per_country(env.world.countries, folder = figure_folder)
     plot_rewards(rewards_per_country, folder = figure_folder)
-    for country in env.world.countries:
-        pie_plot_energy_production_sources(country, folder = figure_folder)
+    for i, country in enumerate(env.world.countries):
+        countries= env.world.countries
+        name = country.name
+        if countries[0].name == countries[1].name:
+            name += f" ({i})"
+        pie_plot_energy_production_sources(country, folder = figure_folder, name=name)
     plot_energy_production_clean_dirty(env.world.countries, folder = figure_folder)
